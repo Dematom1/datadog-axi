@@ -1,0 +1,56 @@
+{
+  "data": [
+    {
+      "id": "s1",
+      "type": "spans",
+      "attributes": {
+        "service": "web",
+        "resource_name": "GET /checkout",
+        "start_timestamp": "2026-10-28T11:50:00.000Z",
+        "end_timestamp": "2026-10-28T11:50:01.200Z",
+        "trace_id": "123456789",
+        "span_id": "1",
+        "parent_id": "0",
+        "env": "prod",
+        "host": "web-1",
+        "type": "web",
+        "custom": {}
+      }
+    },
+    {
+      "id": "s2",
+      "type": "spans",
+      "attributes": {
+        "service": "checkout",
+        "resource_name": "POST /pay",
+        "start_timestamp": "2026-10-28T11:50:00.100Z",
+        "end_timestamp": "2026-10-28T11:50:01.100Z",
+        "trace_id": "123456789",
+        "span_id": "2",
+        "parent_id": "1",
+        "env": "prod",
+        "host": "web-1",
+        "type": "http",
+        "custom": { "error": { "message": "timeout" } }
+      }
+    },
+    {
+      "id": "s3",
+      "type": "spans",
+      "attributes": {
+        "service": "postgres",
+        "resource_name": "SELECT orders",
+        "start_timestamp": "2026-10-28T11:50:00.150Z",
+        "end_timestamp": "2026-10-28T11:50:00.200Z",
+        "trace_id": "123456789",
+        "span_id": "3",
+        "parent_id": "2",
+        "env": "prod",
+        "host": "db-1",
+        "type": "sql",
+        "custom": {}
+      }
+    }
+  ],
+  "meta": { "page": {} }
+}

@@ -1,0 +1,200 @@
+import { AxiError } from "axi-sdk-js";
+import { bool, parseArgs, str, TARGET_FLAGS, type CommandSpec } from "../args.js";
+import { loadConfig, saveConfig, validateOrgName } from "../config.js";
+import { renderHelp } from "../help.js";
+import { probeDomains, validateKeys } from "../probe.js";
+import { orgSuffix, withHelp } from "../render.js";
+import { connect, readConfig, splitSubcommand, type Runtime } from "../runtime.js";
+import { normalizeSite, regionOf } from "../sites.js";
+import { describeTarget } from "../target.js";
+
+/**
+ * Local credential management (S7, D4, D-c2). Secrets arrive only on stdin
+ * (never argv), a terminal on stdin is refused, nothing ever echoes a key,
+ * and there is no interactive or browser login.
+ */
+
+const LOGIN: CommandSpec = {
+  name: "auth login",
+  flags: {
+    "--org": { kind: "string", value: "<name>", description: "Name for this org (required)" },
+    "--site": { kind: "string", value: "<site>", description: "The org's Datadog site, pinned to it (required)" },
+    "--api-key-stdin": {
+      kind: "boolean",
+      description: "Read the API key (line 1) and application key (line 2) from stdin (required)",
+    },
+  },
+};
+
+const STATUS: CommandSpec = { name: "auth status", flags: { ...TARGET_FLAGS } };
+const LIST: CommandSpec = { name: "auth list", flags: {} };
+const LOGOUT: CommandSpec = {
+  name: "auth logout",
+  flags: { "--org": { kind: "string", value: "<name>", description: "Stored org to remove (required)" } },
+};
+
+export const AUTH_HELP = renderHelp({
+  command: "auth",
+  description: "Store, inspect and remove Datadog credentials (OS keychain, one entry per org)",
+  subcommands: [
+    { spec: LOGIN, summary: "Store an org's keys in the OS keychain and make it the current org; local only" },
+    { spec: STATUS, summary: "Check the keys and report which Datadog domains they can read" },
+    { spec: LIST, summary: "Stored orgs with their pinned sites; local only" },
+    { spec: LOGOUT, summary: "Remove a stored org and its keychain entry; local only" },
+  ],
+  notes: [
+    "Environment credentials win when no --org is given: DD_ACCESS_TOKEN, or DD_API_KEY + DD_APP_KEY (or DD_APPLICATION_KEY), with DD_SITE",
+    "Keys are never accepted as flags; login reads them from stdin and refuses a terminal",
+  ],
+  examples: [
+    'printf \'%s\\n%s\\n\' "$DD_API_KEY" "$DD_APP_KEY" | datadog-axi auth login --org prod --site datadoghq.eu --api-key-stdin',
+    "datadog-axi auth status --org prod",
+    "datadog-axi auth list",
+  ],
+});
+
+export async function authCommand(args: string[], rt: Runtime): Promise<Record<string, unknown>> {
+  const { sub, rest } = splitSubcommand("auth", args, ["login", "status", "list", "logout"]);
+  switch (sub) {
+    case "login":
+      return login(rest, rt);
+    case "status":
+      return status(rest, rt);
+    case "list":
+      return list(rest, rt);
+    default:
+      return logout(rest, rt);
+  }
+}
+
+const KEY_SHAPE = /^[A-Za-z0-9_-]{16,128}$/;
+
+async function login(args: string[], rt: Runtime): Promise<Record<string, unknown>> {
+  const parsed = parseArgs(LOGIN, args);
+  const orgName = str(parsed, "--org");
+  const siteInput = str(parsed, "--site");
+  if (!orgName || !siteInput || !bool(parsed, "--api-key-stdin")) {
+    throw new AxiError("auth login needs --org, --site and --api-key-stdin", "VALIDATION_ERROR", [
+      'printf \'%s\\n%s\\n\' "$DD_API_KEY" "$DD_APP_KEY" | datadog-axi auth login --org <name> --site <site> --api-key-stdin',
+    ]);
+  }
+  const org = validateOrgName(orgName);
+  const site = normalizeSite(siteInput);
+
+  const stdin = await rt.readStdin();
+  if (stdin.isTTY) {
+    throw new AxiError("Refusing to read keys from a terminal", "VALIDATION_ERROR", [
+      'Pipe the keys instead: printf \'%s\\n%s\\n\' "$DD_API_KEY" "$DD_APP_KEY" | datadog-axi auth login ...',
+    ]);
+  }
+  const lines = stdin.text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+  if (lines.length !== 2) {
+    throw new AxiError(
+      `Expected exactly 2 non-empty lines on stdin (API key, then application key), got ${lines.length}`,
+      "VALIDATION_ERROR",
+      [
+        'printf \'%s\\n%s\\n\' "$DD_API_KEY" "$DD_APP_KEY" | datadog-axi auth login --org <name> --site <site> --api-key-stdin',
+      ],
+    );
+  }
+  const [apiKey, appKey] = lines as [string, string];
+  if (!KEY_SHAPE.test(apiKey) || !KEY_SHAPE.test(appKey)) {
+    throw new AxiError("A key on stdin does not look like a Datadog key", "VALIDATION_ERROR", [
+      "Line 1 is the API key and line 2 the application key, each 16-128 letters, digits, _ or -",
+    ]);
+  }
+
+  try {
+    await rt.keychain.set(org, { apiKey, appKey });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new AxiError(`Could not write to the OS keychain: ${reason}`, "KEYCHAIN_UNAVAILABLE", [
+      "Unlock the keychain and retry, or use DD_API_KEY and DD_APP_KEY in the environment instead",
+    ]);
+  }
+  const config = loadConfig(rt.configPath);
+  const replaced = config.orgs[org] !== undefined;
+  config.orgs[org] = { site };
+  config.current = org;
+  saveConfig(rt.configPath, config);
+
+  return withHelp(
+    { auth: { org, site: `${site} (${regionOf(site)})`, stored: "OS keychain", current: true, replaced } },
+    [`Run \`datadog-axi auth status --org ${org}\` to check the keys and see which domains they can read`],
+  );
+}
+
+async function status(args: string[], rt: Runtime): Promise<Record<string, unknown>> {
+  const parsed = parseArgs(STATUS, args);
+  const seam = await connect(rt, parsed);
+  const [keys, domains] = await Promise.all([validateKeys(seam), probeDomains(seam, rt.now())]);
+  const readable = domains.filter((d) => d.readable === "yes").map((d) => d.domain);
+  const denied = domains.filter((d) => d.readable === "no").map((d) => d.domain);
+  return withHelp(
+    {
+      target: { org: seam.target.org, site: seam.target.site, credentials: seam.target.credentials },
+      keys,
+      readable: readable.length > 0 ? readable.join(", ") : "none",
+      ...(denied.length > 0 ? { denied: denied.join(", ") } : {}),
+      domains: domains.map(({ domain, readable: r, detail }) => ({ domain, readable: r, detail })),
+    },
+    denied.length > 0
+      ? ["Denied domains need a broader application key scope or user role; ask the key owner"]
+      : [`Run \`datadog-axi doctor${orgSuffix(seam.target)}\` for rate-limit headroom and whether the key could write`],
+  );
+}
+
+async function list(args: string[], rt: Runtime): Promise<Record<string, unknown>> {
+  parseArgs(LIST, args);
+  const config = readConfig(rt);
+  const active = describeTarget({}, rt.env, config);
+  const orgs = Object.entries(config.orgs).map(([name, entry]) => ({
+    org: name,
+    site: entry.site,
+    current: config.current === name,
+  }));
+  const env = active.source === "env" ? active.credentials : "none";
+  if (orgs.length === 0) {
+    return withHelp({ orgs: "0 stored", environment: env, active: active.org }, [
+      'A human stores an org with: printf \'%s\\n%s\\n\' "$DD_API_KEY" "$DD_APP_KEY" | datadog-axi auth login --org <name> --site <site> --api-key-stdin',
+    ]);
+  }
+  return withHelp({ orgs, environment: env, active: active.org }, [
+    "Select a stored org per command with `--org <name>`",
+    ...(active.source === "env" ? ["Environment credentials are active because no `--org` was given"] : []),
+  ]);
+}
+
+async function logout(args: string[], rt: Runtime): Promise<Record<string, unknown>> {
+  const parsed = parseArgs(LOGOUT, args);
+  const orgName = str(parsed, "--org");
+  if (!orgName) {
+    throw new AxiError("auth logout needs --org <name>", "VALIDATION_ERROR", [
+      "Run `datadog-axi auth list` to see stored orgs",
+    ]);
+  }
+  const config = loadConfig(rt.configPath);
+  const known = config.orgs[orgName] !== undefined;
+  let deleted = false;
+  try {
+    deleted = await rt.keychain.delete(orgName);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new AxiError(`Could not remove the keychain entry: ${reason}`, "KEYCHAIN_UNAVAILABLE", [
+      "Unlock the keychain and retry",
+    ]);
+  }
+  if (!known && !deleted) {
+    return { auth: `org ${orgName} is not stored (no-op)` };
+  }
+  delete config.orgs[orgName];
+  if (config.current === orgName) {
+    delete config.current;
+  }
+  config.writable = config.writable.filter((w) => w !== orgName);
+  saveConfig(rt.configPath, config);
+  return { auth: { org: orgName, removed: true, keychain_entry_deleted: deleted } };
+}

@@ -1,0 +1,10 @@
+{
+  "data": {
+    "buckets": [
+      { "by": { "service": "checkout" }, "computes": { "c0": 412 } },
+      { "by": { "service": "cart" }, "computes": { "c0": 37 } },
+      { "by": { "service": "search" }, "computes": { "c0": 5 } }
+    ]
+  },
+  "meta": { "status": "done", "elapsed": 120 }
+}

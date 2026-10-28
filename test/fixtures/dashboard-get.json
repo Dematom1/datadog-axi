@@ -1,0 +1,46 @@
+{
+  "id": "abc-def-ghi",
+  "title": "Checkout overview",
+  "author_handle": "erin@example.com",
+  "modified_at": "2026-10-20T10:00:00.000Z",
+  "layout_type": "ordered",
+  "description": "Golden signals for checkout",
+  "url": "/dashboard/abc-def-ghi/checkout-overview",
+  "template_variables": [{ "name": "env" }],
+  "widgets": [
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Requests",
+        "requests": [{ "q": "sum:trace.http.request.hits{service:checkout}.as_count()" }]
+      }
+    },
+    {
+      "definition": {
+        "type": "group",
+        "title": "Errors",
+        "widgets": [
+          {
+            "definition": {
+              "type": "query_value",
+              "title": "Error rate",
+              "requests": [
+                {
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "a",
+                      "query": "sum:trace.http.request.errors{service:checkout}"
+                    }
+                  ],
+                  "formulas": [{ "formula": "a" }]
+                }
+              ]
+            }
+          },
+          { "definition": { "type": "note", "content": "Page the checkout on-call if this is red" } }
+        ]
+      }
+    }
+  ]
+}
