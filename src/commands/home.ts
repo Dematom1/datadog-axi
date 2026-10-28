@@ -3,13 +3,14 @@ import { project } from "../render.js";
 import { connect, readConfig, type Runtime } from "../runtime.js";
 import type { Seam } from "../seam.js";
 import { ctxBlock } from "./ctx.js";
+import { incidentStateQuery } from "./incidents.js";
 import { MONITOR_FIELDS, sortProblemsFirst, statusCounts, type MonitorSearchResponse } from "./monitors.js";
 
 /**
  * The no-argument home view (D-c1, S17). It starts with the same offline ctx
  * block the session hook prints, then adds live state: monitor counts by
- * status, up to 5 alerting or no-data monitors, and the active incident
- * count. Each live part degrades to `unavailable - <reason>` with exit 0
+ * status, up to 5 alerting or no-data monitors, and the open (active or
+ * stable) incident count. Each live part degrades to `unavailable - <reason>` with exit 0
  * under a short timeout, so the home view never fails.
  */
 
@@ -66,7 +67,7 @@ export async function homeCommand(rt: Runtime): Promise<Record<string, unknown>>
       timeoutMs: HOME_TIMEOUT_MS,
     }),
     seam.call<{ data?: { attributes?: { total?: number } } }>("incidents.search", {
-      query: { query: "state:active", "page[size]": 1 },
+      query: { query: incidentStateQuery(["active", "stable"]), "page[size]": 1 },
       timeoutMs: HOME_TIMEOUT_MS,
     }),
   ]);
@@ -89,7 +90,7 @@ export async function homeCommand(rt: Runtime): Promise<Record<string, unknown>>
   }
 
   if (incidents.status === "fulfilled") {
-    output.incidents = `${incidents.value.data.data?.attributes?.total ?? 0} active`;
+    output.incidents = `${incidents.value.data.data?.attributes?.total ?? 0} open`;
   } else {
     output.incidents = `unavailable - ${reason(incidents.reason)}`;
   }

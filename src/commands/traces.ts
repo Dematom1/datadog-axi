@@ -85,7 +85,7 @@ export const SPAN_FIELDS: FieldSet<Span> = {
     host: (s) => s.attributes?.host,
     type: (s) => s.attributes?.type,
   },
-  defaults: ["time", "service", "resource", "duration_ms", "error"],
+  defaults: ["service", "resource", "duration_ms", "error"],
 };
 
 const SEARCH: CommandSpec = {

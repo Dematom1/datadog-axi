@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { mkdtempSync, readFileSync } from "node:fs";
+import { cpSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from "node:fs";
 import { createServer, type IncomingMessage, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -76,10 +76,18 @@ describe("compiled binary", () => {
     }
   });
 
-  it("keeps the version fast path free of the command graph", () => {
-    const source = readFileSync(join(ROOT, "bin", "datadog-axi.ts"), "utf-8");
-    const staticImports = [...source.matchAll(/^import .* from "([^"]+)";$/gm)].map((m) => m[1]);
-    expect(staticImports).toEqual(["axi-sdk-js/fast-path", "../src/version.js"]);
+  it("answers --version without loading the command graph", async () => {
+    const copy = mkdtempSync(join(tmpdir(), "datadog-axi-fastpath-"));
+    cpSync(join(ROOT, "dist"), join(copy, "dist"), { recursive: true });
+    cpSync(join(ROOT, "package.json"), join(copy, "package.json"));
+    symlinkSync(join(ROOT, "node_modules"), join(copy, "node_modules"), "dir");
+    rmSync(join(copy, "dist", "src", "cli.js"));
+    const bin = join(copy, "dist", "bin", "datadog-axi.js");
+
+    const version = await runBin(bin, ["--version"], cleanEnv());
+    expect(version.code).toBe(0);
+    expect(version.stdout).toBe(`${VERSION}\n`);
+    expect((await runBin(bin, ["ctx"], cleanEnv())).code).not.toBe(0);
   });
 
   it("renders the live home view against the fake server, sending keys only to it", async () => {
@@ -88,7 +96,7 @@ describe("compiled binary", () => {
     expect(code).toBe(0);
     expect(stdout).toContain("description: ");
     expect(stdout).toContain("site: datadoghq.eu (EU1)");
-    expect(stdout).toContain("incidents: 2 active");
+    expect(stdout).toContain("incidents: 2 open");
     const mine = requests.slice(before);
     expect(mine.length).toBe(3);
     expect(mine.every((r) => r.headers["dd-api-key"] === CREDS.DD_API_KEY)).toBe(true);

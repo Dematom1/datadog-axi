@@ -52,7 +52,6 @@ export const API_HELP = renderHelp({
   ],
   examples: [
     "datadog-axi api /api/v1/monitor --query group_states=alert",
-    "datadog-axi api /api/v2/rum/events --query 'filter[query]=@type:error'",
     "datadog-axi api POST /api/v2/spans/analytics/aggregate --body-file query.json",
   ],
 });

@@ -16,6 +16,8 @@ import {
 import { connect, splitSubcommand, type Runtime } from "../runtime.js";
 import { formatWindow, isoUtc, resolveWindow, toSeconds, windowFlags } from "../time.js";
 
+const INGESTION_LAG = "recent events can take a minute or more to become searchable";
+
 interface EventV1 {
   id?: number;
   title?: string;
@@ -158,7 +160,7 @@ async function listEvents(args: string[], rt: Runtime): Promise<Record<string, u
   if (sources.length > 0) header.sources = sources.join(",");
 
   if (events.length === 0) {
-    return withHelp({ events: "0 matched", ...header, ...redactionNote(redacted) }, [
+    return withHelp({ events: "0 matched", ...header, note: INGESTION_LAG, ...redactionNote(redacted) }, [
       `Widen the window: ${rebuildCommand("datadog-axi events list", args, ["--from", "--to"])} --from 24h`,
       tags.length > 0 || priority || sources.length > 0
         ? "Drop a filter (`--tags`, `--priority`, `--sources`)"
@@ -202,7 +204,7 @@ async function search(args: string[], rt: Runtime): Promise<Record<string, unkno
   const header = { site: seam.target.site, window: formatWindow(window), query };
 
   if (events.length === 0) {
-    return withHelp({ events: "0 matched", ...header, ...redactionNote(redacted) }, [
+    return withHelp({ events: "0 matched", ...header, note: INGESTION_LAG, ...redactionNote(redacted) }, [
       `Widen the window: ${rebuildCommand("datadog-axi events search", args, ["--from", "--to", "--cursor"])} --from 24h`,
       'Loosen the query, e.g. `"*"` or a single `source:<name>` term',
     ]);

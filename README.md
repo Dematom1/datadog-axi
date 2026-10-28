@@ -70,7 +70,7 @@ Each Datadog site is fully independent, so the same query on the wrong site just
 | `logs view <id>`                                              | One event with its attributes                                                                                       |
 | `metrics query "<expr>"`                                      | Per-series summary (n, min, avg, max, last); `--points` for raw values                                              |
 | `metrics list`, `search <text>`, `view <name>`, `tags <name>` | Names, metadata and volume, tag cardinality                                                                         |
-| `traces search "<query>"`                                     | Spans (time, service, resource, duration, error)                                                                    |
+| `traces search "<query>"`                                     | Spans (service, resource, duration, error)                                                                          |
 | `traces view <trace_id>`                                      | Summarized span tree                                                                                                |
 | `services list`, `view <name>`                                | Ownership, contacts and links from the service catalog                                                              |
 | `dashboards list`, `view <id>`                                | Widget titles and queries; the full JSON with `--full`                                                              |

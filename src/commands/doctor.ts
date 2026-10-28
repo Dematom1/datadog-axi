@@ -18,6 +18,9 @@ export const DOCTOR_HELP = renderHelp({
   examples: ["datadog-axi doctor", "datadog-axi doctor --org prod"],
 });
 
+const READ_SCOPE = /(^|_)read(_|$)|_query$|^logs_live_tail$/;
+const WRITE_SCOPE = /(^|_)(write|manage|modify|delete|create|share|generate|downtime)(_|$)/;
+
 interface AppKey {
   attributes?: { last4?: string; name?: string; scopes?: string[] | null };
 }
@@ -46,9 +49,13 @@ export async function writeCapability(seam: Seam): Promise<string> {
     if (!scopes || scopes.length === 0) {
       return "likely yes - the application key is unscoped, so it has every permission of its user";
     }
-    const writes = scopes.filter((s) => !/_read(_data)?$|_query$|^timeseries_query$/.test(s));
-    return writes.length > 0
-      ? `yes - non-read scopes: ${writes.join(", ")}`
+    const writes = scopes.filter((s) => WRITE_SCOPE.test(s));
+    if (writes.length > 0) {
+      return `yes - write scopes: ${writes.join(", ")}`;
+    }
+    const unknown = scopes.filter((s) => !READ_SCOPE.test(s));
+    return unknown.length > 0
+      ? `unknown - unrecognized scopes: ${unknown.join(", ")}`
       : `no - every scope is read-only (${scopes.join(", ")})`;
   } catch (error) {
     const code = error instanceof AxiError ? error.code : "UNKNOWN";

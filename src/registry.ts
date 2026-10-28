@@ -2,7 +2,7 @@
  * The operation registries (S5): the only list of Datadog requests this tool
  * can make, plus the refusal list of known requests it never makes.
  *
- * Datadog hides many reads behind POST (logs, spans, events, RUM search,
+ * Datadog hides many reads behind POST (logs, spans, events search,
  * metrics v2 queries) and many writes behind POST too, so nothing here is
  * classified by HTTP verb. Each operation is keyed by method + path template
  * + body type, and the seam refuses anything that is not registered.
@@ -126,9 +126,6 @@ export const READ_OPERATIONS: Operation[] = [
 
   r("notebooks.list", "GET", "/api/v1/notebooks", "notebooks"),
   r("notebooks.get", "GET", "/api/v1/notebooks/{notebook_id}", "notebooks"),
-
-  r("rum.search", "POST", "/api/v2/rum/events/search", "rum", { bodyType: "rum_search_request" }),
-  r("rum.list", "GET", "/api/v2/rum/events", "rum"),
 ];
 
 /** Empty in v1 (D3: read-only core). The gate is in place for the roadmap's write tier. */

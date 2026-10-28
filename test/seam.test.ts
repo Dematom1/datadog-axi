@@ -1,23 +1,9 @@
-import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
 import { AxiError } from "axi-sdk-js";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createRegistry, READ_OPERATIONS, REFUSALS, WRITE_OPERATIONS, type Operation } from "../src/registry.js";
 import { resolveBaseUrl, Seam, type WritePreview } from "../src/seam.js";
 import type { Target } from "../src/target.js";
-import { fakeFetch } from "./helpers.js";
-
-const SRC = join(import.meta.dirname, "..", "src");
-
-function sourceFiles(dir = SRC): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
-    entry.isDirectory()
-      ? sourceFiles(join(dir, entry.name))
-      : entry.name.endsWith(".ts")
-        ? [join(dir, entry.name)]
-        : [],
-  );
-}
+import { ENV_KEYS, fakeFetch, makeRuntime, run } from "./helpers.js";
 
 const KEYS_TARGET: Target = {
   org: "env",
@@ -99,29 +85,77 @@ describe("registry (read-only by construction)", () => {
       expect(refusal.alternative.length, refusal.path).toBeGreaterThan(0);
     }
   });
+});
 
-  it("only the seam calls fetch", () => {
-    const offenders = sourceFiles().filter(
-      (file) => !file.endsWith("seam.ts") && /\bfetch\s*\(/.test(readFileSync(file, "utf-8")),
-    );
-    expect(offenders).toEqual([]);
-  });
+describe("every command stays on the read allowlist (S5)", () => {
+  const INVOCATIONS: string[][] = [
+    [],
+    ["auth", "status"],
+    ["doctor"],
+    ["monitors"],
+    ["monitors", "view", "12"],
+    ["logs", "search", "status:error"],
+    ["logs", "aggregate", "status:error", "--by", "service"],
+    ["logs", "view", "AQAAAX"],
+    ["metrics", "query", "avg:system.cpu.user{*}"],
+    ["metrics", "list"],
+    ["metrics", "search", "cpu"],
+    ["metrics", "view", "system.cpu.user"],
+    ["metrics", "tags", "system.cpu.user"],
+    ["traces", "search", "service:web"],
+    ["traces", "view", "123"],
+    ["services", "list"],
+    ["services", "view", "web"],
+    ["dashboards", "list"],
+    ["dashboards", "view", "abc-def-ghi"],
+    ["incidents", "list"],
+    ["incidents", "view", "inc1"],
+    ["events", "list"],
+    ["events", "search", "source:deploy"],
+    ["hosts", "list"],
+    ["slos", "list"],
+    ["slos", "view", "slo1"],
+    ["slos", "status", "slo1"],
+    ["downtimes", "list"],
+    ["synthetics", "list"],
+    ["synthetics", "view", "abc-123-def"],
+    ["synthetics", "results", "abc-123-def"],
+    ["notebooks", "list"],
+    ["notebooks", "view", "7"],
+    ["api", "/api/v1/monitor"],
+  ];
 
-  it("every operation id used in source is registered", () => {
-    const registry = createRegistry();
-    const used = new Set<string>();
-    for (const file of sourceFiles()) {
-      for (const m of readFileSync(file, "utf-8").matchAll(/\.call(?:<[^>]*>)?\(\s*"([a-z0-9_.]+)"/g)) {
-        used.add(m[1] as string);
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("sends only allowed requests, through the injected fetch, and never names an unregistered operation", async () => {
+    const globalFetch = vi.fn(() => {
+      throw new Error("global fetch called");
+    });
+    vi.stubGlobal("fetch", globalFetch);
+    const registry = createRegistry(READ_OPERATIONS, []);
+    const violations: string[] = [];
+    const fetch = fakeFetch({});
+    const classify = (async (url: string, init: RequestInit) => {
+      const method = init.method ?? "GET";
+      const path = new URL(url).pathname;
+      if (registry.match(method, path).kind !== "allowed") {
+        violations.push(`${method} ${path}`);
       }
-      for (const m of readFileSync(file, "utf-8").matchAll(/operation:\s*"([a-z0-9_.]+)"/g)) {
-        used.add(m[1] as string);
-      }
+      await fetch(url, init);
+      return new Response("{}", { status: 200, headers: { "content-type": "application/json" } });
+    }) as typeof fetch;
+
+    for (const argv of INVOCATIONS) {
+      const before = fetch.calls.length;
+      const { stdout } = await run(
+        argv,
+        makeRuntime({ env: { ...ENV_KEYS, DD_SITE: "datadoghq.eu" }, fetch: classify }),
+      );
+      expect(fetch.calls.length, `datadog-axi ${argv.join(" ")}`).toBeGreaterThan(before);
+      expect(stdout, `datadog-axi ${argv.join(" ")}`).not.toContain("code: REFUSED");
     }
-    expect(used.size).toBeGreaterThan(30);
-    for (const id of used) {
-      expect(registry.get(id), id).toBeDefined();
-    }
+    expect(violations).toEqual([]);
+    expect(globalFetch).not.toHaveBeenCalled();
   });
 });
 

@@ -16,7 +16,7 @@ describe("home view", () => {
     expect(fetch.calls).toHaveLength(0);
   });
 
-  it("adds monitor counts, alerting monitors and active incidents", async () => {
+  it("adds monitor counts, alerting monitors and open incidents", async () => {
     const search = fixture<{ monitors: unknown[] }>("monitor-search.json");
     const fetch = fakeFetch({
       "GET /api/v1/monitor/search": (req) =>
@@ -30,7 +30,9 @@ describe("home view", () => {
     expect(stdout).toContain("site: datadoghq.eu (EU1)");
     expect(stdout).toMatch(/monitor_counts:\n {2}Alert: 3\n {2}Warn: 1\n {2}"No Data": 2\n {2}OK: 120/);
     expect(stdout).toContain("102,Checkout error rate,Alert,query alert");
-    expect(stdout).toContain("incidents: 2 active");
+    const incidents = fetch.calls.find((c) => c.url.pathname === "/api/v2/incidents/search")!;
+    expect(incidents.url.searchParams.get("query")).toBe("state:(active OR stable)");
+    expect(stdout).toContain("incidents: 2 open");
   });
 
   it("degrades each live part to unavailable with exit 0", async () => {
@@ -209,6 +211,13 @@ describe("metrics", () => {
 });
 
 describe("traces", () => {
+  it("searches spans with four default columns", async () => {
+    const fetch = fakeFetch({ "POST /api/v2/spans/events/search": { body: fixture("spans-trace.json") } });
+    const { stdout, exitCode } = await run(["traces", "search", "service:web"], makeRuntime({ env: EU, fetch }));
+    expect(exitCode).toBe(0);
+    expect(stdout).toMatch(/spans\[\d+\]\{service,resource,duration_ms,error\}:/);
+  });
+
   it("views a trace as a span tree with errors", async () => {
     const fetch = fakeFetch({ "POST /api/v2/spans/events/search": { body: fixture("spans-trace.json") } });
     const { stdout, exitCode } = await run(["traces", "view", "123456789"], makeRuntime({ env: EU, fetch }));
@@ -222,6 +231,24 @@ describe("traces", () => {
     expect(stdout).toMatch(
       /0,web,GET \/checkout,1200,false\n {2}1,checkout,POST \/pay,1000,true\n {2}2,postgres,SELECT orders,50,false/,
     );
+  });
+});
+
+describe("events", () => {
+  it("mentions ingestion lag when nothing matched", async () => {
+    const fetch = fakeFetch({
+      "GET /api/v1/events": { body: { events: [] } },
+      "POST /api/v2/events/search": { body: { data: [] } },
+    });
+    for (const argv of [
+      ["events", "list"],
+      ["events", "search", "source:deploy"],
+    ]) {
+      const { stdout, exitCode } = await run(argv, makeRuntime({ env: EU, fetch }));
+      expect(exitCode, argv.join(" ")).toBe(0);
+      expect(stdout).toContain("events: 0 matched");
+      expect(stdout).toContain("note: recent events can take a minute or more to become searchable");
+    }
   });
 });
 
@@ -381,8 +408,37 @@ describe("doctor", () => {
       ["doctor"],
       makeRuntime({ env: { DD_API_KEY: "a".repeat(32), DD_APP_KEY: appKey }, fetch }),
     );
-    expect(stdout).toContain('could_write: "yes - non-read scopes: monitors_write"');
+    expect(stdout).toContain('could_write: "yes - write scopes: monitors_write"');
     expect(stdout).toContain("monitors,monitor_search,998,1000");
+  });
+
+  it("classifies read scopes outside the _read suffix and leaves unrecognized scopes unknown", async () => {
+    const appKey = "c".repeat(36) + "wxyz";
+    const doctor = async (scopes: string[]) => {
+      const fetch = fakeFetch({
+        "GET /api/v1/validate": { body: { valid: true } },
+        "GET /api/v2/current_user/application_keys": { body: { data: [{ attributes: { last4: "wxyz", scopes } }] } },
+      });
+      const { stdout } = await run(
+        ["doctor"],
+        makeRuntime({ env: { DD_API_KEY: "a".repeat(32), DD_APP_KEY: appKey }, fetch }),
+      );
+      return stdout;
+    };
+    const readOnly = [
+      "monitors_read",
+      "logs_read_index_data",
+      "logs_read_archives",
+      "logs_live_tail",
+      "timeseries_query",
+    ];
+    expect(await doctor(readOnly)).toContain(`could_write: "no - every scope is read-only (${readOnly.join(", ")})"`);
+    expect(await doctor(["monitors_read", "billing_thing"])).toContain(
+      'could_write: "unknown - unrecognized scopes: billing_thing"',
+    );
+    expect(await doctor(["logs_read_data", "monitors_downtime"])).toContain(
+      'could_write: "yes - write scopes: monitors_downtime"',
+    );
   });
 });
 
