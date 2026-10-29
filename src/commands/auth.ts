@@ -67,6 +67,10 @@ export async function authCommand(args: string[], rt: Runtime): Promise<Record<s
   }
 }
 
+function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 const KEY_SHAPE = /^[A-Za-z0-9_-]{16,128}$/;
 
 async function login(args: string[], rt: Runtime): Promise<Record<string, unknown>> {
@@ -112,14 +116,21 @@ async function login(args: string[], rt: Runtime): Promise<Record<string, unknow
   const config = loadConfig(rt.configPath);
   const replaced = findOrg(config, org) !== undefined;
 
+  // The current entry is read first: rolling back a failed config save needs it.
   let previous;
   try {
     previous = await rt.keychain.get(org);
+  } catch (error) {
+    throw new AxiError(`Could not read the OS keychain: ${errorText(error)}`, "KEYCHAIN_UNAVAILABLE", [
+      `Unlock the keychain, then re-run \`datadog-axi auth login --org ${org} --site ${site} --api-key-stdin\``,
+    ]);
+  }
+  try {
     await rt.keychain.set(org, { apiKey, appKey });
   } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    throw new AxiError(`Could not write to the OS keychain: ${reason}`, "KEYCHAIN_UNAVAILABLE", [
-      "Unlock the keychain and retry, or use DD_API_KEY and DD_APP_KEY in the environment instead",
+    throw new AxiError(`Could not write to the OS keychain: ${errorText(error)}`, "KEYCHAIN_UNAVAILABLE", [
+      `Unlock the keychain, then re-run \`datadog-axi auth login --org ${org} --site ${site} --api-key-stdin\``,
+      "Or use DD_API_KEY and DD_APP_KEY in the environment instead",
     ]);
   }
   config.orgs[org] = { site };
@@ -128,11 +139,21 @@ async function login(args: string[], rt: Runtime): Promise<Record<string, unknow
     saveConfig(rt.configPath, config);
   } catch (error) {
     // Undo the keychain write so keys and config never disagree.
-    await (previous ? rt.keychain.set(org, previous) : rt.keychain.delete(org)).catch(() => undefined);
-    const reason = error instanceof Error ? error.message : String(error);
-    throw new AxiError(`Could not save the config file: ${reason}`, "CONFIG_INVALID", [
-      `Check that ${rt.configPath} and its directory are writable, then retry`,
-    ]);
+    let rolledBack = true;
+    try {
+      await (previous ? rt.keychain.set(org, previous) : rt.keychain.delete(org));
+    } catch {
+      rolledBack = false;
+    }
+    throw new AxiError(
+      `Could not save the config file: ${errorText(error)}${
+        rolledBack ? "" : `; the keychain entry for org "${org}" could not be restored and may not match the config`
+      }`,
+      "CONFIG_INVALID",
+      [
+        `Check that ${rt.configPath} and its directory are writable, then re-run \`datadog-axi auth login --org ${org} --site ${site} --api-key-stdin\``,
+      ],
+    );
   }
 
   return withHelp(

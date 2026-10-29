@@ -175,8 +175,16 @@ async function listEvents(args: string[], rt: Runtime): Promise<Record<string, u
   const capped = events.length >= EVENTS_V1_PAGE;
   const hints: string[] = [];
   if (capped) {
+    // The response holds the newest events; the missing ones sit between the window start and the oldest returned.
+    const oldest = events[events.length - 1]?.date_happened;
+    const cut =
+      oldest !== undefined
+        ? Math.min(window.toMs, Math.max(window.fromMs, oldest * 1000))
+        : window.fromMs + (window.toMs - window.fromMs) / 2;
     hints.push(
-      `More events may exist: narrow the window or filters, e.g. ${rebuildCommand("datadog-axi events list", args, ["--from", "--to"])} --from 1h`,
+      cut > window.fromMs + 1000
+        ? `More events may exist: list the earlier part of the window with ${rebuildCommand("datadog-axi events list", args, ["--from", "--to"])} --from ${isoUtc(window.fromMs)} --to ${isoUtc(cut)}`
+        : "More events may exist: narrow the filters (`--tags`, `--priority`, `--sources`)",
     );
   }
   if (events.length > limit) {

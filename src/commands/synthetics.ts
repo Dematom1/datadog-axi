@@ -79,8 +79,12 @@ interface SyntheticResult {
   };
 }
 
+/** Datadog result status: 0 passed, 1 failed, 2 no data. No data is neither a pass nor a fail. */
 function resultPassed(r: SyntheticResult): boolean | null {
-  return r.result?.passed ?? (r.status === undefined ? null : r.status === 0);
+  if (typeof r.result?.passed === "boolean") {
+    return r.result.passed;
+  }
+  return r.status === 0 ? true : r.status === 1 ? false : null;
 }
 
 const RESULT_FIELDS: FieldSet<SyntheticResult> = {
@@ -231,12 +235,14 @@ async function results(args: string[], rt: Runtime): Promise<Record<string, unkn
     };
   }
   const shown = rows.slice(0, limit);
+  const passed = rows.filter((r) => resultPassed(r) === true).length;
   const failed = rows.filter((r) => resultPassed(r) === false).length;
+  const noData = rows.length - passed - failed;
   return {
     site: seam.target.site,
     test: test.name ?? id,
     status: test.status ?? null,
-    summary: `${rows.length - failed} passed, ${failed} failed of ${rows.length} recent`,
+    summary: `${passed} passed, ${failed} failed${noData > 0 ? `, ${noData} no data` : ""} of ${rows.length} recent`,
     count: `${shown.length} of ${rows.length}`,
     results: project(shown, RESULT_FIELDS, fields),
     ...redactionNote(redacted),

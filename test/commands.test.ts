@@ -567,11 +567,44 @@ describe("flag hygiene", () => {
 
 describe("review hardening", () => {
   it("labels a 1000-event v1 response as a lower bound", async () => {
-    const events = Array.from({ length: 1000 }, (_, i) => ({ id: i, title: `e${i}`, date_happened: 1793228000 - i }));
+    const events = Array.from({ length: 1000 }, (_, i) => ({
+      id: i,
+      title: `e${i}`,
+      date_happened: 1793188800 - 1 - i,
+    }));
     const fetch = fakeFetch({ "GET /api/v1/events": { body: { events } } });
     const { stdout } = await run(["events", "list"], makeRuntime({ env: EU, fetch }));
     expect(stdout).toContain("50 of at least 1000 in window");
     expect(stdout).toContain("More events may exist");
+    // The hint stays inside the requested window: from its start to the oldest returned event.
+    expect(stdout).toContain("--from 2026-10-28T11:00:00Z --to 2026-10-28T11:43:20Z");
+  });
+
+  it("counts synthetic no-data results as neither passed nor failed", async () => {
+    const fetch = fakeFetch({
+      "GET /api/v1/synthetics/tests/abc-def-ghi": {
+        body: { public_id: "abc-def-ghi", name: "Checkout API", type: "api" },
+      },
+      "GET /api/v1/synthetics/tests/abc-def-ghi/results": {
+        body: {
+          results: [
+            { check_time: 1793228000000, probe_dc: "aws:eu-west-1", status: 0 },
+            { check_time: 1793227000000, probe_dc: "aws:eu-west-1", status: 1 },
+            { check_time: 1793226000000, probe_dc: "aws:eu-west-1", status: 2 },
+          ],
+        },
+      },
+    });
+    const { stdout } = await run(["synthetics", "results", "abc-def-ghi"], makeRuntime({ env: EU, fetch }));
+    expect(stdout).toContain("1 passed, 1 failed, 1 no data of 3 recent");
+  });
+
+  it("filters SLOs on a single tag, rejecting a repeated --tag", async () => {
+    const fetch = fakeFetch({ "GET /api/v1/slo": { body: { data: [{ id: "s1", name: "Checkout" }] } } });
+    await run(["slos", "list", "--tag", "team:payments"], makeRuntime({ env: EU, fetch }));
+    expect(fetch.calls[0]!.url.searchParams.get("tags_query")).toBe("team:payments");
+    const repeated = await run(["slos", "list", "--tag", "a:b", "--tag", "c:d"], makeRuntime({ env: EU }));
+    expect(repeated.exitCode).toBe(2);
   });
 
   it("counts SLOs with total_filtered_count when a filter is applied", async () => {

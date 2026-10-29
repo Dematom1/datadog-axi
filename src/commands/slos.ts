@@ -1,5 +1,5 @@
 import { AxiError } from "axi-sdk-js";
-import { bool, intFlag, list, parseArgs, str, TARGET_FLAGS, WINDOW_FLAGS, type CommandSpec } from "../args.js";
+import { bool, intFlag, parseArgs, str, TARGET_FLAGS, WINDOW_FLAGS, type CommandSpec } from "../args.js";
 import { renderHelp } from "../help.js";
 import {
   iso,
@@ -57,7 +57,11 @@ const LIST: CommandSpec = {
   name: "slos list",
   positionals: ["<query>?"],
   flags: {
-    "--tag": { kind: "list", value: "<tag>", description: "Only SLOs with this tag, e.g. team:payments (repeatable)" },
+    "--tag": {
+      kind: "string",
+      value: "<tag>",
+      description: "Only SLOs with this tag, e.g. team:payments (one tag: Datadog filters SLOs on a single tag)",
+    },
     "--limit": { kind: "string", value: "<n>", description: "Max SLOs (default 100, max 1000)" },
     "--offset": { kind: "string", value: "<n>", description: "Offset of the first SLO (default 0)" },
     "--fields": {
@@ -117,7 +121,7 @@ async function listSlos(args: string[], rt: Runtime): Promise<Record<string, unk
   const fields = selectFields(parsed, SLO_FIELDS, LIST.name);
   const limit = intFlag(parsed, "--limit", { default: 100, max: 1000 });
   const offset = intFlag(parsed, "--offset", { default: 0, min: 0, max: 1_000_000 });
-  const tags = list(parsed, "--tag");
+  const tag = str(parsed, "--tag");
   const query = parsed.positionals[0];
 
   const seam = await connect(rt, parsed);
@@ -125,7 +129,7 @@ async function listSlos(args: string[], rt: Runtime): Promise<Record<string, unk
     data?: Slo[];
     metadata?: { page?: { total_count?: number; total_filtered_count?: number } };
   }>("slos.list", {
-    query: { query, tags_query: tags.length > 0 ? tags.join(",") : undefined, limit, offset },
+    query: { query, tags_query: tag, limit, offset },
   });
   const slos = data.data ?? [];
   // total_filtered_count counts matches for the query and tags; total_count ignores them.
@@ -136,9 +140,9 @@ async function listSlos(args: string[], rt: Runtime): Promise<Record<string, unk
     return withHelp(
       {
         site: seam.target.site,
-        slos: `0 matched${query ? ` "${query}"` : ""}${tags.length ? ` tags ${tags.join(",")}` : ""}`,
+        slos: `0 matched${query ? ` "${query}"` : ""}${tag ? ` tag ${tag}` : ""}`,
       },
-      query || tags.length
+      query || tag
         ? ["Drop the name query or `--tag` to widen"]
         : ["Run `datadog-axi ctx` to check this is the expected org and site"],
     );
