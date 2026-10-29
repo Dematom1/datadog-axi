@@ -1,6 +1,6 @@
 # Contributing
 
-All contributions must go through the [no-mistakes](https://github.com/kunchenguid/no-mistakes) pipeline. Pull requests that have not passed it are not eligible to merge.
+All contributions must go through the [no-mistakes](https://github.com/kunchenguid/no-mistakes) pipeline. Pull requests that have not passed it are not eligible to merge. Use a Conventional Commit title for every pull request.
 
 Review each proposed change against the existing contract and classify its effect:
 
