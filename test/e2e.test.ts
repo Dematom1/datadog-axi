@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { cpSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from "node:fs";
+import { chmodSync, cpSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -48,7 +48,14 @@ afterAll(() => new Promise<void>((resolve) => server.close(() => resolve())));
 
 function cleanEnv(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
   const home = mkdtempSync(join(tmpdir(), "datadog-axi-e2e-"));
-  return { PATH: process.env.PATH, HOME: home, XDG_CONFIG_HOME: join(home, ".config"), ...extra };
+  // A pup on the developer's PATH must never run: tests opt in with a fake one.
+  return {
+    PATH: process.env.PATH,
+    HOME: home,
+    XDG_CONFIG_HOME: join(home, ".config"),
+    DATADOG_AXI_PUP: "off",
+    ...extra,
+  };
 }
 
 const CREDS = { DD_API_KEY: "a".repeat(32), DD_APP_KEY: "b".repeat(40), DD_SITE: "datadoghq.eu" };
@@ -144,6 +151,75 @@ describe("compiled binary", () => {
     expect(stdout).toContain("org: env");
     expect(stdout).toContain("writes: none (read-only v1)");
     expect(requests.length).toBe(before);
+  });
+});
+
+/**
+ * A fake pup on disk, so the compiled binary runs a real child process. It
+ * logs its argv (one call per line) and answers `auth token` and `auth status`
+ * like pup does; `mode=expired` fails `auth token` the way pup reports it.
+ */
+function fakePupBin(mode: "ok" | "expired"): { bin: string; log: string } {
+  const dir = mkdtempSync(join(tmpdir(), "datadog-axi-fake-pup-"));
+  const bin = join(dir, "pup");
+  const log = join(dir, "calls.log");
+  writeFileSync(
+    bin,
+    `#!/bin/sh
+echo "$*" >> "${log}"
+case "$1 $2" in
+  "auth token")
+    if [ "${mode}" = expired ]; then
+      echo "Error: token is expired — run 'pup auth login' to refresh" >&2
+      exit 1
+    fi
+    echo "${PUP_TOKEN}" ;;
+  "auth status")
+    printf '{"authenticated":true,"site":"%s","org":null,"status":"valid","expires_at":"2026-10-29T14:00:00+00:00","scopes":["incident_read","monitors_read"]}\n' "\${DD_SITE:-datadoghq.com}" ;;
+  *) echo "unexpected: $*" >&2; exit 2 ;;
+esac
+`,
+  );
+  chmodSync(bin, 0o755);
+  return { bin, log };
+}
+
+const PUP_TOKEN = "pupfaketoken".padEnd(48, "x");
+
+describe.skipIf(process.platform === "win32")("pup as the credential source", () => {
+  it("sends pup's token as a bearer, only to the fake server, and never prints it", async () => {
+    const pup = fakePupBin("ok");
+    const before = requests.length;
+    const env = cleanEnv({ DATADOG_AXI_PUP: pup.bin, DD_SITE: "datadoghq.eu", DATADOG_AXI_API_URL: baseUrl });
+    const { stdout, code } = await runBin(BIN, ["monitors"], env);
+    expect(code).toBe(0);
+    expect(stdout).not.toContain(PUP_TOKEN);
+    const mine = requests.slice(before);
+    expect(mine.length).toBeGreaterThan(0);
+    expect(mine.every((r) => r.headers.authorization === `Bearer ${PUP_TOKEN}`)).toBe(true);
+    expect(mine.every((r) => r.headers["dd-api-key"] === undefined)).toBe(true);
+    expect(readFileSync(pup.log, "utf-8")).toBe("auth token\nauth status\n");
+
+    const status = await runBin(BIN, ["auth", "status"], env);
+    expect(status.stdout).toContain("org: pup");
+    expect(status.stdout).toContain("site: datadoghq.eu");
+    expect(status.stdout).toContain('credentials: "pup auth token (OAuth login, expires 2026-10-29T14:00:00+00:00)"');
+    expect(status.stdout).not.toContain(PUP_TOKEN);
+  });
+
+  it("reports an expired pup token with the refresh command, and the hook never runs pup", async () => {
+    const pup = fakePupBin("expired");
+    const env = cleanEnv({ DATADOG_AXI_PUP: pup.bin, DATADOG_AXI_API_URL: baseUrl });
+    const { stdout, code } = await runBin(BIN, ["monitors"], env);
+    expect(code).toBe(1);
+    expect(stdout).toContain("code: AUTH_REQUIRED");
+    expect(stdout).toContain("pup's Datadog token has expired");
+    expect(stdout).toContain("pup auth refresh");
+
+    const hook = await runBin(CTX_BIN, [], env);
+    expect(hook.code).toBe(0);
+    expect(hook.stdout).toContain("org: pup");
+    expect(readFileSync(pup.log, "utf-8")).toBe("auth token\n");
   });
 });
 

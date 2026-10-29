@@ -35,7 +35,10 @@ export function ctxBlock(
   const target = describeTarget(input, env, config);
   const block: Record<string, unknown> = {
     org: target.org,
-    site: `${target.site} (${regionOf(target.site)})`,
+    site:
+      target.site !== ""
+        ? `${target.site} (${regionOf(target.site)})`
+        : "from pup's login (run `datadog-axi auth status`)",
     credentials: target.credentials,
     writes: WRITES_STATUS,
   };
@@ -60,6 +63,7 @@ export async function ctxCommand(args: string[], rt: Runtime): Promise<Record<st
     ctx.credentials === "none configured"
       ? [
           "Set DD_API_KEY, DD_APP_KEY and DD_SITE, or have a human run `datadog-axi auth login --org <name> --site <site> --api-key-stdin`",
+          "Run `datadog-axi auth guide --site <site>` for both setup routes (pup login or keys)",
         ]
       : ["Run `datadog-axi` for live monitor and incident state", "Run `datadog-axi auth list` to see stored orgs"];
   return { ctx, help: hints };

@@ -1,4 +1,5 @@
 import { AxiError } from "axi-sdk-js";
+import { guideSite, setupGuide, US1_FALLBACK_HINT } from "../guide.js";
 import { project } from "../render.js";
 import { connect, readConfig, type Runtime } from "../runtime.js";
 import type { Seam } from "../seam.js";
@@ -35,12 +36,17 @@ export async function homeCommand(rt: Runtime): Promise<Record<string, unknown>>
   }
 
   if (ctx.credentials === "none configured") {
+    // Cannot throw here: ctxBlock above already rejected an unknown DD_SITE.
+    const target = guideSite(undefined, rt.env);
+    const { data, steps } = setupGuide(target.site);
     return {
       ctx,
       live: "unavailable - no credentials configured",
+      setup: data,
       help: [
-        "Set DD_API_KEY, DD_APP_KEY and DD_SITE in the environment",
-        'Or have a human run: printf \'%s\\n%s\\n\' "$DD_API_KEY" "$DD_APP_KEY" | datadog-axi auth login --org <name> --site <site> --api-key-stdin',
+        "Show the user these setup steps; a human creates and stores the keys, an agent never handles key values",
+        ...steps,
+        ...(target.explicit ? [] : [US1_FALLBACK_HINT]),
         "Run `datadog-axi --help` for commands",
       ],
     };
@@ -53,7 +59,11 @@ export async function homeCommand(rt: Runtime): Promise<Record<string, unknown>>
     return {
       ctx,
       live: `unavailable - ${reason(error)}`,
-      help: ["Run `datadog-axi auth status` to check the credentials", "Run `datadog-axi --help` for commands"],
+      help: [
+        ...(error instanceof AxiError ? error.suggestions : []),
+        "Run `datadog-axi auth status` to check the credentials",
+        "Run `datadog-axi --help` for commands",
+      ],
     };
   }
 

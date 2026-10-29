@@ -1,6 +1,8 @@
 import { AxiError } from "axi-sdk-js";
 import { findOrg, type Config } from "./config.js";
+import { apiKeysUrl, applicationKeysUrl, guideCommand, READ_SCOPES } from "./guide.js";
 import type { Keychain } from "./keychain.js";
+import { findPup, processPupRunner, pupLogin, pupLoginCommand, type PupRunner } from "./pup.js";
 import { DEFAULT_SITE, normalizeSite } from "./sites.js";
 
 /**
@@ -13,6 +15,11 @@ import { DEFAULT_SITE, normalizeSite } from "./sites.js";
  *    `DD_APP_KEY` / `DD_APPLICATION_KEY`; site from `--site`, else `DD_SITE`,
  *    else US1. Reported as org `env`.
  * 3. The config's current org and its keychain entry.
+ * 4. Pup, when it is on PATH (or `DATADOG_AXI_PUP` names it): the token of
+ *    pup's browser login, read through `pup auth token` (see `pup.ts`), for
+ *    the site pup reports. Reported as org `pup`.
+ * 5. None: site from `--site`, else `DD_SITE`, else US1, so setup guidance
+ *    points at the right site.
  *
  * A stored org pins its site: `--site` naming a different site is
  * `WRONG_SITE`, so a key is never sent to the wrong site by accident.
@@ -20,12 +27,16 @@ import { DEFAULT_SITE, normalizeSite } from "./sites.js";
 
 export type Auth = { kind: "keys"; apiKey: string; appKey: string } | { kind: "bearer"; token: string };
 
-export type CredentialSource = "env" | "keychain" | "none";
+export type CredentialSource = "env" | "keychain" | "pup" | "none";
 
 export interface TargetDescription {
   org: string;
-  site: string;
   source: CredentialSource;
+  /**
+   * Empty only for source `pup` with no `--site` or `DD_SITE`: the site then
+   * comes from pup's login, known once `resolveTarget` has asked pup.
+   */
+  site: string;
   /** Human description of where the credential comes from; never the secret. */
   credentials: string;
   /** True when the org was named with `--org` on this invocation. */
@@ -34,6 +45,8 @@ export interface TargetDescription {
 
 export interface Target extends TargetDescription {
   auth: Auth;
+  /** The credential's scopes when its issuer reports them (pup does). */
+  scopes?: string[];
 }
 
 export interface TargetInput {
@@ -108,9 +121,23 @@ export function describeTarget(input: TargetInput, env: NodeJS.ProcessEnv, confi
     }
   }
 
+  const envSite = nonEmpty(env.DD_SITE);
+  const site = flagSite ?? (envSite !== undefined ? normalizeSite(envSite) : undefined);
+  if (findPup(env) !== undefined) {
+    const session = nonEmpty(env.DD_ORG);
+    return {
+      org: "pup",
+      site: site ?? "",
+      source: "pup",
+      credentials: `pup auth token (OAuth login${session !== undefined ? `, session ${session}` : ""})`,
+      explicit: false,
+    };
+  }
+
+  // No credentials yet: DD_SITE still names the site, so setup links point at it.
   return {
     org: "none",
-    site: flagSite ?? DEFAULT_SITE,
+    site: site ?? DEFAULT_SITE,
     source: "none",
     credentials: "none configured",
     explicit: false,
@@ -123,12 +150,20 @@ export async function resolveTarget(
   env: NodeJS.ProcessEnv,
   config: Config,
   keychain: Keychain,
+  pupRunner: PupRunner = processPupRunner,
 ): Promise<Target> {
   const description = describeTarget(input, env, config);
 
+  if (description.source === "pup") {
+    return resolvePup(description, env, pupRunner);
+  }
+
   if (description.source === "none") {
+    const site = description.site;
     throw new AxiError("No Datadog credentials configured", "AUTH_REQUIRED", [
-      "Set DD_API_KEY and DD_APP_KEY (and DD_SITE) in the environment, or store an org:",
+      `Run \`${guideCommand(site)}\` for both setup routes: a browser login with Datadog's Pup CLI, or keys a human creates (site ${site}; pass \`--site\` for another)`,
+      `Keys: an API key at ${apiKeysUrl(site)} and a read-scoped application key at ${applicationKeysUrl(site)}`,
+      "Then set DD_API_KEY and DD_APP_KEY (and DD_SITE) in the environment, or store an org:",
       LOGIN_HINT,
     ]);
   }
@@ -160,9 +195,43 @@ export async function resolveTarget(
   if (!keys) {
     throw new AxiError(`Org "${description.org}" has no keys in the keychain`, "AUTH_REQUIRED", [
       LOGIN_HINT.replace("<name>", description.org).replace("<site>", description.site),
+      `Run \`${guideCommand(description.site, description.org)}\` for both setup routes (pup login or keys)`,
     ]);
   }
   return { ...description, auth: { kind: "keys", apiKey: keys.apiKey, appKey: keys.appKey } };
+}
+
+async function resolvePup(description: TargetDescription, env: NodeJS.ProcessEnv, runner: PupRunner): Promise<Target> {
+  const requested = description.site !== "" ? description.site : undefined;
+  const login = await pupLogin(findPup(env) as string, env, requested, runner, pupLoginCommand(requested, READ_SCOPES));
+  let site: string;
+  try {
+    site = normalizeSite(login.site);
+  } catch {
+    throw new AxiError(
+      `pup is logged in to ${login.site}, which is not a Datadog site datadog-axi sends credentials to`,
+      "AUTH_REQUIRED",
+      [`Log pup in to a Datadog site: ${pupLoginCommand("<site>", READ_SCOPES)}`, "Or set DD_API_KEY and DD_APP_KEY"],
+    );
+  }
+  if (requested !== undefined && site !== requested) {
+    throw new AxiError(`pup's login is for site ${site}, not ${requested}`, "WRONG_SITE", [
+      `Log pup in to ${requested}: ${pupLoginCommand(requested, READ_SCOPES)}`,
+      `Or drop \`--site\` and DD_SITE to use ${site}`,
+    ]);
+  }
+  const details = [
+    "OAuth login",
+    ...(login.org !== undefined ? [`session ${login.org}`] : []),
+    ...(login.expiresAt !== undefined ? [`expires ${login.expiresAt}`] : []),
+  ];
+  return {
+    ...description,
+    site,
+    credentials: `pup auth token (${details.join(", ")})`,
+    auth: { kind: "bearer", token: login.token },
+    ...(login.scopes !== undefined ? { scopes: login.scopes } : {}),
+  };
 }
 
 function assertPinnedSite(org: string, pinned: string, requested: string | undefined): void {

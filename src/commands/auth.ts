@@ -1,6 +1,7 @@
 import { AxiError } from "axi-sdk-js";
 import { bool, parseArgs, str, TARGET_FLAGS, type CommandSpec } from "../args.js";
 import { findOrg, loadConfig, saveConfig, validateOrgName } from "../config.js";
+import { deniedScopes, guideCommand, guideSite, setupGuide, US1_FALLBACK_HINT } from "../guide.js";
 import { renderHelp } from "../help.js";
 import { probeDomains, validateKeys } from "../probe.js";
 import { orgSuffix, withHelp } from "../render.js";
@@ -11,8 +12,17 @@ import { describeTarget } from "../target.js";
 /**
  * Local credential management (S7, D4, D-c2). Secrets arrive only on stdin
  * (never argv), a terminal on stdin is refused, nothing ever echoes a key,
- * and there is no interactive or browser login.
+ * and datadog-axi has no interactive or browser login of its own. `auth guide`
+ * points a human to pup's browser login first and stored keys as the fallback.
  */
+
+const GUIDE: CommandSpec = {
+  name: "auth guide",
+  flags: {
+    "--site": { kind: "string", value: "<site>", description: "The org's Datadog site (default: DD_SITE, then US1)" },
+    "--org": { kind: "string", value: "<name>", description: "Name to store the org under in the login step" },
+  },
+};
 
 const LOGIN: CommandSpec = {
   name: "auth login",
@@ -35,8 +45,13 @@ const LOGOUT: CommandSpec = {
 
 export const AUTH_HELP = renderHelp({
   command: "auth",
-  description: "Store, inspect and remove Datadog credentials (OS keychain, one entry per org)",
+  description: "Set up, store, inspect and remove Datadog credentials (OS keychain, one entry per org)",
   subcommands: [
+    {
+      spec: GUIDE,
+      summary:
+        "Credential setup guide for the org's site: pup login first, keys as the fallback (links, scopes, checks); offline",
+    },
     { spec: LOGIN, summary: "Store an org's keys in the OS keychain and make it the current org; local only" },
     { spec: STATUS, summary: "Check the keys and report which Datadog domains they can read" },
     { spec: LIST, summary: "Stored orgs with their pinned sites; local only" },
@@ -44,9 +59,11 @@ export const AUTH_HELP = renderHelp({
   ],
   notes: [
     "Environment credentials win when no --org is given: DD_ACCESS_TOKEN, or DD_API_KEY + DD_APP_KEY (or DD_APPLICATION_KEY), with DD_SITE",
+    "With nothing else configured, pup's browser login is used when pup is on PATH (DATADOG_AXI_PUP=off disables it)",
     "Keys are never accepted as flags; login reads them from stdin and refuses a terminal",
   ],
   examples: [
+    "datadog-axi auth guide --site datadoghq.eu --org prod",
     'printf \'%s\\n%s\\n\' "$DD_API_KEY" "$DD_APP_KEY" | datadog-axi auth login --org prod --site datadoghq.eu --api-key-stdin',
     "datadog-axi auth status --org prod",
     "datadog-axi auth list",
@@ -54,8 +71,10 @@ export const AUTH_HELP = renderHelp({
 });
 
 export async function authCommand(args: string[], rt: Runtime): Promise<Record<string, unknown>> {
-  const { sub, rest } = splitSubcommand("auth", args, ["login", "status", "list", "logout"]);
+  const { sub, rest } = splitSubcommand("auth", args, ["guide", "login", "status", "list", "logout"]);
   switch (sub) {
+    case "guide":
+      return guide(rest, rt);
     case "login":
       return login(rest, rt);
     case "status":
@@ -69,6 +88,19 @@ export async function authCommand(args: string[], rt: Runtime): Promise<Record<s
 
 function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function guide(args: string[], rt: Runtime): Record<string, unknown> {
+  const parsed = parseArgs(GUIDE, args);
+  const orgName = str(parsed, "--org");
+  const org = orgName !== undefined ? validateOrgName(orgName) : undefined;
+  const { site, explicit } = guideSite(str(parsed, "--site"), rt.env);
+  const { data, steps } = setupGuide(site, org);
+  return withHelp({ guide: data }, [
+    "A human follows these steps; an agent never handles key values",
+    ...steps,
+    ...(explicit ? [] : [US1_FALLBACK_HINT]),
+  ]);
 }
 
 const KEY_SHAPE = /^[A-Za-z0-9_-]{16,128}$/;
@@ -177,7 +209,10 @@ async function status(args: string[], rt: Runtime): Promise<Record<string, unkno
       domains: domains.map(({ domain, readable: r, detail }) => ({ domain, readable: r, detail })),
     },
     denied.length > 0
-      ? ["Denied domains need a broader application key scope or user role; ask the key owner"]
+      ? [
+          `Denied domains need these scopes on the key, and a user role that grants them: ${deniedScopes(denied)}`,
+          `Run \`${guideCommand(seam.target.site)}\` for where to edit the key's scopes`,
+        ]
       : [`Run \`datadog-axi doctor${orgSuffix(seam.target)}\` for rate-limit headroom and whether the key could write`],
   );
 }
@@ -192,14 +227,17 @@ async function list(args: string[], rt: Runtime): Promise<Record<string, unknown
     current: config.current === name,
   }));
   const env = active.source === "env" ? active.credentials : "none";
+  const pup = active.source === "pup" ? { pup: active.credentials } : {};
   if (orgs.length === 0) {
-    return withHelp({ orgs: "0 stored", environment: env, active: active.org }, [
+    return withHelp({ orgs: "0 stored", environment: env, ...pup, active: active.org }, [
+      "Run `datadog-axi auth guide --site <site>` for both setup routes (pup login or keys)",
       'A human stores an org with: printf \'%s\\n%s\\n\' "$DD_API_KEY" "$DD_APP_KEY" | datadog-axi auth login --org <name> --site <site> --api-key-stdin',
     ]);
   }
-  return withHelp({ orgs, environment: env, active: active.org }, [
+  return withHelp({ orgs, environment: env, ...pup, active: active.org }, [
     "Select a stored org per command with `--org <name>`",
     ...(active.source === "env" ? ["Environment credentials are active because no `--org` was given"] : []),
+    ...(active.source === "pup" ? ["pup's login is active because no other credential is configured"] : []),
   ]);
 }
 

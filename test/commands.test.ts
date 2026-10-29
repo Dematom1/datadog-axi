@@ -1,7 +1,11 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { describe, expect, it } from "vitest";
-import { ENV_KEYS, fakeFetch, fixture, makeRuntime, run } from "./helpers.js";
+import { chmodSync, mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { findPup, PupFailure } from "../src/pup.js";
+import { ENV_KEYS, fakeFetch, fakePup, fixture, makeRuntime, run } from "./helpers.js";
 
 const EU = { ...ENV_KEYS, DD_SITE: "datadoghq.eu" };
 
@@ -15,6 +19,25 @@ describe("home view", () => {
     expect(stdout).toContain("writes: none (read-only v1)");
     expect(stdout).toContain("live: unavailable - no credentials configured");
     expect(fetch.calls).toHaveLength(0);
+  });
+
+  it("prints the setup guide for DD_SITE when no keys are set", async () => {
+    const fetch = fakeFetch({});
+    const { stdout, exitCode } = await run([], makeRuntime({ env: { DD_SITE: "EU1" }, fetch }));
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("site: datadoghq.eu (EU1)\n  credentials: none configured");
+    expect(stdout).toContain('application_keys: "https://app.datadoghq.eu/organization-settings/application-keys"');
+    expect(stdout).toContain(
+      `  B3. Store both in the OS keychain; keys go on stdin, never in arguments: printf '%s\\n%s\\n' "$DD_API_KEY" "$DD_APP_KEY" | datadog-axi auth login --org <name> --site datadoghq.eu --api-key-stdin\n`,
+    );
+    expect(stdout).not.toContain("The links are for");
+    expect(fetch.calls).toHaveLength(0);
+
+    const us1 = await run([], makeRuntime({ fetch }));
+    expect(us1.stdout).toContain("https://app.datadoghq.com/organization-settings/api-keys");
+    expect(us1.stdout).toContain(
+      "The links are for datadoghq.com (US1); if the org is on another site, run `datadog-axi auth guide --site <site>`",
+    );
   });
 
   it("adds monitor counts, alerting monitors and open incidents", async () => {
@@ -436,6 +459,52 @@ describe("api escape hatch", () => {
 });
 
 describe("auth", () => {
+  it("guides key creation for the org's site, offline and without touching the keychain", async () => {
+    const fetch = fakeFetch({});
+    const keychain = {
+      get: async () => {
+        throw new Error("keychain must not be read");
+      },
+      set: async () => {
+        throw new Error("keychain must not be written");
+      },
+      delete: async () => {
+        throw new Error("keychain must not be written");
+      },
+    };
+    const { stdout, exitCode } = await run(
+      ["auth", "guide", "--site", "us3.datadoghq.com", "--org", "prod"],
+      makeRuntime({ env: { DD_SITE: "EU1" }, fetch, keychain }),
+    );
+    expect(exitCode).toBe(0);
+    expect(fetch.calls).toHaveLength(0);
+    expect(stdout).toContain("site: us3.datadoghq.com (US3)");
+    expect(stdout).toContain('api_keys: "https://app.us3.datadoghq.com/organization-settings/api-keys"');
+    expect(stdout).toContain('personal_access_tokens: "https://app.us3.datadoghq.com/personal-settings/access-tokens"');
+    const readScopes = /read_scopes: (.*)\n/.exec(stdout)![1]!.split(" ");
+    expect(readScopes).toContain("monitors_read");
+    expect(readScopes).toContain("logs_read_index_data");
+    expect(readScopes).not.toContain("monitors_downtime");
+    expect(stdout).toMatch(/downtimes,monitors_downtime,"optional, not read-only/);
+    expect(stdout).toContain(
+      `printf '%s\\n%s\\n' "$DD_API_KEY" "$DD_APP_KEY" | datadog-axi auth login --org prod --site us3.datadoghq.com --api-key-stdin\n`,
+    );
+    expect(stdout).toContain("run `datadog-axi auth status --org prod`");
+    expect(stdout).toContain("Run `datadog-axi doctor --org prod`");
+    expect(stdout).not.toContain("The links are for");
+
+    const fromEnv = await run(["auth", "guide"], makeRuntime({ env: { DD_SITE: "EU1" } }));
+    expect(fromEnv.stdout).toContain("site: datadoghq.eu (EU1)");
+    expect(fromEnv.stdout).toContain("--org <name> --site datadoghq.eu --api-key-stdin");
+
+    const fallback = await run(["auth", "guide"], makeRuntime());
+    expect(fallback.stdout).toContain("site: datadoghq.com (US1)");
+    expect(fallback.stdout).toContain("The links are for datadoghq.com (US1)");
+
+    expect((await run(["auth", "guide", "--site", "nowhere.example"], makeRuntime())).exitCode).toBe(2);
+    expect((await run(["auth", "guide", "--org", "bad name"], makeRuntime())).exitCode).toBe(2);
+  });
+
   it("validates the config before writing to the keychain", async () => {
     const rt = makeRuntime({ stdin: { isTTY: false, text: `${"k".repeat(32)}\n${"s".repeat(40)}\n` } });
     mkdirSync(dirname(rt.configPath), { recursive: true });
@@ -489,7 +558,138 @@ describe("auth", () => {
     expect(stdout).toContain("monitors,yes,ok");
     expect(stdout).toContain("logs,no,FORBIDDEN");
     expect(stdout).toContain("traces,not probed");
+    expect(stdout).toContain("logs_read_data logs_read_index_data (logs)");
+    expect(stdout).toContain("Run `datadog-axi auth guide --site datadoghq.eu` for where to edit the key's scopes");
     expect(fetch.calls.some((c) => c.url.pathname.startsWith("/api/v2/spans"))).toBe(false);
+  });
+});
+
+describe("pup credential source", () => {
+  const PUP = { DATADOG_AXI_PUP: "/opt/fake/pup" };
+  const TOKEN = "p".repeat(48);
+  const STATUS = {
+    authenticated: true,
+    site: "datadoghq.eu",
+    org: "prod",
+    status: "valid",
+    expires_at: "2026-10-28T13:00:00+00:00",
+    scopes: ["incident_read", "monitors_read"],
+  };
+
+  it("uses pup's token as a bearer when nothing else is configured", async () => {
+    const pup = fakePup({ token: `${TOKEN}\n`, status: STATUS });
+    const fetch = fakeFetch({ "GET /api/v1/monitor/search": { body: fixture("monitor-search.json") } });
+    const { stdout, exitCode } = await run(["monitors"], makeRuntime({ env: { ...PUP, DD_ORG: "prod" }, fetch, pup }));
+    expect(exitCode).toBe(0);
+    expect(pup.calls.map((c) => c.args.join(" "))).toEqual(["auth token", "auth status"]);
+    expect(pup.calls[0]!.env.DD_ORG).toBe("prod");
+    expect(fetch.calls[0]!.url.host).toBe("api.datadoghq.eu");
+    expect(fetch.calls[0]!.headers.authorization).toBe(`Bearer ${TOKEN}`);
+    expect(fetch.calls[0]!.headers["dd-api-key"]).toBeUndefined();
+    expect(stdout).not.toContain(TOKEN);
+  });
+
+  it("shows pup as the credential source in auth status and judges write capability from its scopes", async () => {
+    const fetch = fakeFetch({ "GET /api/v1/monitor/search": { body: {} } });
+    const status = await run(
+      ["auth", "status"],
+      makeRuntime({ env: PUP, fetch, pup: fakePup({ token: TOKEN, status: STATUS }) }),
+    );
+    expect(status.stdout).toContain("org: pup");
+    expect(status.stdout).toContain(
+      'credentials: "pup auth token (OAuth login, session prod, expires 2026-10-28T13:00:00+00:00)"',
+    );
+    const doctor = await run(
+      ["doctor"],
+      makeRuntime({ env: PUP, fetch, pup: fakePup({ token: TOKEN, status: STATUS }) }),
+    );
+    expect(doctor.stdout).toContain('credentials: "pup auth token (OAuth login');
+    expect(doctor.stdout).toContain('could_write: "no - every scope is read-only (incident_read, monitors_read)"');
+    expect(doctor.stdout).not.toContain(TOKEN);
+  });
+
+  it("lists pup's login under its own key, not as environment credentials", async () => {
+    const pup = fakePup({ token: TOKEN, status: STATUS });
+    const { stdout, exitCode } = await run(["auth", "list"], makeRuntime({ env: PUP, pup }));
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("environment: none");
+    expect(stdout).toMatch(/^pup: .*pup auth token/m);
+    expect(stdout).toContain("active: pup");
+    expect(stdout).not.toContain(TOKEN);
+  });
+
+  it("passes --site to pup as DD_SITE and refuses a login for another site", async () => {
+    const pup = fakePup({ token: TOKEN, status: STATUS });
+    const { stdout, exitCode } = await run(["monitors", "--site", "US5"], makeRuntime({ env: PUP, pup }));
+    expect(pup.calls[0]!.env.DD_SITE).toBe("us5.datadoghq.com");
+    expect(exitCode).toBe(1);
+    expect(stdout).toContain("code: WRONG_SITE");
+    expect(stdout).toContain("pup auth login --site us5.datadoghq.com --scopes monitors_read,");
+
+    const vanity = fakePup({ token: TOKEN, status: { ...STATUS, site: "acme.example.com" } });
+    const other = await run(["monitors"], makeRuntime({ env: PUP, pup: vanity }));
+    expect(other.stdout).toContain("not a Datadog site datadog-axi sends credentials to");
+  });
+
+  it("explains an expired or missing pup login, with the command that fixes it", async () => {
+    const expired = fakePup({
+      token: new PupFailure("Error: token is expired — run 'pup auth login' to refresh", "failed"),
+    });
+    const a = await run(["monitors"], makeRuntime({ env: { ...PUP, DD_ORG: "prod" }, pup: expired }));
+    expect(a.exitCode).toBe(1);
+    expect(a.stdout).toContain("code: AUTH_REQUIRED");
+    expect(a.stdout).toContain("pup's Datadog token has expired");
+    expect(a.stdout).toContain("`pup auth refresh --org prod`");
+    expect(expired.calls).toHaveLength(1);
+
+    const none = fakePup({ token: new PupFailure("Error: no token available — run 'pup auth login'", "failed") });
+    const b = await run(["monitors"], makeRuntime({ env: PUP, pup: none }));
+    expect(b.stdout).toContain("pup has no usable Datadog login");
+    expect(b.stdout).toContain("pup auth login --scopes monitors_read,");
+    expect(b.stdout).toContain("set DATADOG_AXI_PUP=off");
+
+    const slow = fakePup({ token: new PupFailure("pup did not answer within 60s", "timeout") });
+    expect((await run(["monitors"], makeRuntime({ env: PUP, pup: slow }))).stdout).toContain("keychain prompt");
+
+    const garbage = fakePup({ token: "not a token\n" });
+    expect((await run(["monitors"], makeRuntime({ env: PUP, pup: garbage }))).stdout).toContain(
+      "pup auth token did not print a token",
+    );
+  });
+
+  it("comes after env credentials and the current stored org, and off disables it", async () => {
+    const fetch = fakeFetch({ "GET /api/v1/monitor/search": { body: {} } });
+    expect((await run(["monitors"], makeRuntime({ env: { ...PUP, ...EU }, fetch }))).exitCode).toBe(0);
+    const stored = makeRuntime({
+      env: PUP,
+      fetch,
+      config: { current: "prod", orgs: { prod: { site: "datadoghq.eu" } } },
+      keys: { prod: { apiKey: "k".repeat(32), appKey: "s".repeat(40) } },
+    });
+    expect((await run(["monitors"], stored)).exitCode).toBe(0);
+
+    const off = await run(["monitors"], makeRuntime({ env: { DATADOG_AXI_PUP: "off" } }));
+    expect(off.stdout).toContain("No Datadog credentials configured");
+  });
+
+  it("keeps ctx offline: names pup without running it", async () => {
+    const { stdout, exitCode } = await run(["ctx"], makeRuntime({ env: PUP }));
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("org: pup");
+    expect(stdout).toContain("site: from pup's login");
+  });
+
+  it("finds pup on PATH only as an executable file", () => {
+    const dir = mkdtempSync(join(tmpdir(), "datadog-axi-pup-path-"));
+    expect(findPup({ PATH: dir })).toBeUndefined();
+    const bin = join(dir, "pup");
+    writeFileSync(bin, "#!/bin/sh\n");
+    chmodSync(bin, 0o644);
+    expect(findPup({ PATH: dir })).toBeUndefined();
+    chmodSync(bin, 0o755);
+    expect(findPup({ PATH: dir })).toBe(bin);
+    expect(findPup({ PATH: dir, DATADOG_AXI_PUP: "off" })).toBeUndefined();
+    expect(findPup({ DATADOG_AXI_PUP: "/elsewhere/pup" })).toBe("/elsewhere/pup");
   });
 });
 
@@ -522,6 +722,17 @@ describe("doctor", () => {
     );
     expect(stdout).toContain('could_write: "yes - write scopes: monitors_write"');
     expect(stdout).toContain("monitors,monitor_search,998,1000");
+  });
+
+  it("names the scopes that would allow each denied domain", async () => {
+    const fetch = fakeFetch({
+      "GET /api/v1/validate": { body: { valid: true } },
+      "GET /api/v2/incidents/search": { status: 403, body: { errors: ["Forbidden"] } },
+      "GET /api/v1/hosts/totals": { status: 403, body: { errors: ["Forbidden"] } },
+    });
+    const { stdout } = await run(["doctor"], makeRuntime({ env: EU, fetch }));
+    expect(stdout).toContain("Scopes that would allow them: incident_read (incidents), hosts_read (hosts)");
+    expect(stdout).toContain("Run `datadog-axi auth guide --site datadoghq.eu` for where to edit the key's scopes");
   });
 
   it("classifies read scopes outside the _read suffix and leaves unrecognized scopes unknown", async () => {
