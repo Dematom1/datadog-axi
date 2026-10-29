@@ -1,6 +1,6 @@
 # Contributing
 
-All contributions must go through the [no-mistakes](https://github.com/kunchenguid/no-mistakes) pipeline. Pull requests that have not passed it are not eligible to merge. Release PRs opened by automation are exempt (see `.github/workflows/no-mistakes-required.yml`). Every pull request title must use a Conventional Commit type: `feat`, `fix`, `chore`, `ci`, `docs`, `refactor`, `test`, `perf`, `build`, or `revert`. A title may include a scope in parentheses and `!` before the colon.
+All contributions must go through the [no-mistakes](https://github.com/kunchenguid/no-mistakes) pipeline. Pull requests that have not passed it are not eligible to merge. Release PRs opened by automation are exempt (see `.github/workflows/no-mistakes-required.yml`). Because that workflow skips them, a release PR shows the required "PR must be raised via no-mistakes" check as missing, and the maintainer merges it with an admin bypass. Every pull request title must use a Conventional Commit type: `feat`, `fix`, `chore`, `ci`, `docs`, `refactor`, `test`, `perf`, `build`, or `revert`. A title may include a scope in parentheses and `!` before the colon.
 
 Review each proposed change against the existing contract and classify its effect:
 
