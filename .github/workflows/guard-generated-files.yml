@@ -43,7 +43,9 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -eu
-          files=$(git diff --name-only "${BASE_SHA}...${HEAD_SHA}")
+          # Additions are excluded: creating these files is the one-time
+          # release-please bootstrap; once they exist, only release-please edits them.
+          files=$(git diff --name-only --diff-filter=a "${BASE_SHA}...${HEAD_SHA}")
 
           violated=""
           for path in CHANGELOG.md .release-please-manifest.json; do
