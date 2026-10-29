@@ -120,6 +120,20 @@ describe("hardening", () => {
     expect(() => loadConfig(rt.configPath)).toThrow(/unknown site/);
   });
 
+  it("points invalid org entries at the config file, not at a login that would fail the same way", () => {
+    for (const orgs of [{ prod: { site: "evil.example.com" } }, { prod: {} }, { env: { site: "datadoghq.com" } }]) {
+      const rt = makeRuntime({ config: { orgs: orgs as never } });
+      let help: string[] = [];
+      try {
+        loadConfig(rt.configPath);
+      } catch (err) {
+        help = (err as { suggestions?: string[] }).suggestions ?? [];
+      }
+      const name = Object.keys(orgs)[0]!;
+      expect(help.some((h) => h.includes(`orgs.${name}`) && h.includes(rt.configPath))).toBe(true);
+    }
+  });
+
   it("normalizes a stored region name to its site", () => {
     const rt = makeRuntime({ config: { orgs: { prod: { site: "EU1" } } } });
     expect(loadConfig(rt.configPath).orgs.prod).toEqual({ site: "datadoghq.eu" });

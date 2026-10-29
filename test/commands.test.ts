@@ -317,6 +317,34 @@ describe("view truncation", () => {
   });
 });
 
+describe("synthetics results", () => {
+  it("shows four columns by default and adds location only through --fields", async () => {
+    const fetch = fakeFetch({
+      "GET /api/v1/synthetics/tests/abc-123-def": { body: { name: "Checkout", type: "api" } },
+      "GET /api/v1/synthetics/tests/abc-123-def/results": {
+        body: {
+          results: [
+            { check_time: 1700000000000, probe_dc: "aws:eu-west-1", result: { passed: false, duration: 812 } },
+            { check_time: 1700000060000, probe_dc: "aws:us-east-1", status: 0, result: { timings: { total: 95 } } },
+          ],
+        },
+      },
+    });
+    const base = ["synthetics", "results", "abc-123-def"];
+    const plain = await run(base, makeRuntime({ env: EU, fetch }));
+    expect(plain.exitCode).toBe(0);
+    expect(plain.stdout).toContain("results[2]{time,passed,duration_ms,failure}:");
+    expect(plain.stdout).toContain('summary: "1 passed, 1 failed of 2 recent"');
+    expect(plain.stdout).not.toContain("aws:");
+    const wide = await run([...base, "--fields", "location"], makeRuntime({ env: EU, fetch }));
+    expect(wide.stdout).toContain("results[2]{time,passed,duration_ms,failure,location}:");
+    expect(wide.stdout).toContain("aws:us-east-1");
+    const bad = await run([...base, "--fields", "probe"], makeRuntime({ env: EU, fetch }));
+    expect(bad.exitCode).toBe(2);
+    expect(bad.stdout).toContain("VALIDATION_ERROR");
+  });
+});
+
 describe("api escape hatch", () => {
   it("allows registered reads with the same redaction", async () => {
     const fetch = fakeFetch({ "GET /api/v1/monitor": { body: [{ id: 1, options: { password: "p" } }] } });

@@ -70,13 +70,12 @@ export function loadConfig(path: string): Config {
     for (const [name, entry] of Object.entries(raw.orgs as Record<string, unknown>)) {
       const site = (entry as { site?: unknown } | null)?.site;
       if (typeof site !== "string" || site.length === 0) {
-        throw new AxiError(`Org "${name}" in ${path} has no site`, "CONFIG_INVALID", [
-          `Re-run \`datadog-axi auth login --org ${name} --site <site> --api-key-stdin\``,
-        ]);
+        throw new AxiError(`Org "${name}" in ${path} has no site`, "CONFIG_INVALID", fixOrgHint(path, name));
       }
       if (!ORG_NAME.test(name) || name === "env") {
         throw new AxiError(`Org name "${name}" in ${path} is not valid`, "CONFIG_INVALID", [
           'Use letters, digits, ".", "_" or "-" (max 63 chars); "env" is reserved',
+          ...fixOrgHint(path, name),
         ]);
       }
       // Only known Datadog sites ever receive credentials, even from a hand-edited file.
@@ -84,9 +83,11 @@ export function loadConfig(path: string): Config {
       try {
         normalized = normalizeSite(site);
       } catch {
-        throw new AxiError(`Org "${name}" in ${path} has an unknown site: ${site}`, "CONFIG_INVALID", [
-          `Re-run \`datadog-axi auth login --org ${name} --site <site> --api-key-stdin\` with a Datadog site`,
-        ]);
+        throw new AxiError(
+          `Org "${name}" in ${path} has an unknown site: ${site}`,
+          "CONFIG_INVALID",
+          fixOrgHint(path, name),
+        );
       }
       config.orgs[name] = { site: normalized };
     }
@@ -133,4 +134,11 @@ export function validateOrgName(name: string): string {
     ]);
   }
   return name;
+}
+
+function fixOrgHint(path: string, name: string): string[] {
+  return [
+    `Edit or remove the \`orgs.${name}\` entry in ${path}`,
+    `Then re-run \`datadog-axi auth login --org <name> --site <site> --api-key-stdin\` with a Datadog site`,
+  ];
 }

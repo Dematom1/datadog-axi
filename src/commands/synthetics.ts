@@ -65,11 +65,51 @@ const VIEW: CommandSpec = {
   flags: { "--full": { kind: "boolean", description: "Do not truncate the message" }, ...TARGET_FLAGS },
 };
 
+interface SyntheticResult {
+  result_id?: string;
+  check_time?: number;
+  probe_dc?: string;
+  status?: number;
+  result?: {
+    passed?: boolean;
+    timings?: { total?: number };
+    duration?: number;
+    failure?: { code?: string; message?: string };
+    errorMessage?: string;
+  };
+}
+
+function resultPassed(r: SyntheticResult): boolean | null {
+  return r.result?.passed ?? (r.status === undefined ? null : r.status === 0);
+}
+
+const RESULT_FIELDS: FieldSet<SyntheticResult> = {
+  all: {
+    time: (r) => iso(r.check_time),
+    location: (r) => r.probe_dc,
+    passed: resultPassed,
+    duration_ms: (r) => r.result?.timings?.total ?? r.result?.duration,
+    failure: (r) =>
+      oneLine(
+        r.result?.failure
+          ? `${r.result.failure.code ?? ""} ${r.result.failure.message ?? ""}`
+          : (r.result?.errorMessage ?? ""),
+        150,
+      ),
+  },
+  defaults: ["time", "passed", "duration_ms", "failure"],
+};
+
 const RESULTS: CommandSpec = {
   name: "synthetics results",
   positionals: ["<public_id>"],
   flags: {
     "--limit": { kind: "string", value: "<n>", description: "Max results, newest first (default 20, max 200)" },
+    "--fields": {
+      kind: "list",
+      value: "<fields>",
+      description: `Extra columns: ${Object.keys(RESULT_FIELDS.all).join(", ")}`,
+    },
     ...TARGET_FLAGS,
   },
 };
@@ -80,9 +120,13 @@ export const SYNTHETICS_HELP = renderHelp({
   subcommands: [
     { spec: LIST, summary: "Tests with type and live/paused status" },
     { spec: VIEW, summary: "One test: target, frequency, locations, assertions" },
-    { spec: RESULTS, summary: "Latest results: location, pass/fail, duration, failure" },
+    { spec: RESULTS, summary: "Latest results: pass/fail, duration, failure" },
   ],
-  examples: ["datadog-axi synthetics list", "datadog-axi synthetics results abc-def-ghi"],
+  examples: [
+    "datadog-axi synthetics list",
+    "datadog-axi synthetics results abc-def-ghi",
+    "datadog-axi synthetics results abc-def-ghi --fields location",
+  ],
 });
 
 export async function syntheticsCommand(args: string[], rt: Runtime): Promise<Record<string, unknown>> {
@@ -167,43 +211,17 @@ async function view(args: string[], rt: Runtime): Promise<Record<string, unknown
   );
 }
 
-interface SyntheticResult {
-  result_id?: string;
-  check_time?: number;
-  probe_dc?: string;
-  status?: number;
-  result?: {
-    passed?: boolean;
-    timings?: { total?: number };
-    duration?: number;
-    failure?: { code?: string; message?: string };
-    errorMessage?: string;
-  };
-}
-
 async function results(args: string[], rt: Runtime): Promise<Record<string, unknown>> {
   const parsed = parseArgs(RESULTS, args);
   const id = checkId(parsed.positionals[0] as string);
+  const fields = selectFields(parsed, RESULT_FIELDS, RESULTS.name);
   const limit = intFlag(parsed, "--limit", { default: 20, max: 200 });
   const seam = await connect(rt, parsed);
   const { data: test } = await seam.call<SyntheticTest>("synthetics.get", { params: { public_id: id } });
   const op = test.type === "browser" ? "synthetics.browser_results" : "synthetics.api_results";
   const { data, redacted } = await seam.call<{ results?: SyntheticResult[] }>(op, { params: { public_id: id } });
 
-  const rows = [...(data.results ?? [])]
-    .sort((a, b) => (b.check_time ?? 0) - (a.check_time ?? 0))
-    .map((r) => ({
-      time: iso(r.check_time),
-      location: r.probe_dc ?? null,
-      passed: r.result?.passed ?? (r.status === undefined ? null : r.status === 0),
-      duration_ms: r.result?.timings?.total ?? r.result?.duration ?? null,
-      failure: oneLine(
-        r.result?.failure
-          ? `${r.result.failure.code ?? ""} ${r.result.failure.message ?? ""}`
-          : (r.result?.errorMessage ?? ""),
-        150,
-      ),
-    }));
+  const rows = [...(data.results ?? [])].sort((a, b) => (b.check_time ?? 0) - (a.check_time ?? 0));
 
   if (rows.length === 0) {
     return {
@@ -213,14 +231,14 @@ async function results(args: string[], rt: Runtime): Promise<Record<string, unkn
     };
   }
   const shown = rows.slice(0, limit);
-  const failed = rows.filter((r) => r.passed === false).length;
+  const failed = rows.filter((r) => resultPassed(r) === false).length;
   return {
     site: seam.target.site,
     test: test.name ?? id,
     status: test.status ?? null,
     summary: `${rows.length - failed} passed, ${failed} failed of ${rows.length} recent`,
     count: `${shown.length} of ${rows.length}`,
-    results: shown,
+    results: project(shown, RESULT_FIELDS, fields),
     ...redactionNote(redacted),
   };
 }
