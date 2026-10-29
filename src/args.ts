@@ -51,7 +51,7 @@ const RENAMED_FLAGS: Record<string, string> = {
     "secrets are never accepted in argv; pipe them to `auth login --org <name> --site <site> --api-key-stdin`",
   "--app-key":
     "secrets are never accepted in argv; pipe them to `auth login --org <name> --site <site> --api-key-stdin`",
-  "--tags-query": "use `--tag` (repeatable)",
+  "--tags-query": "use `--tag <tag>` (one tag)",
 };
 
 const FLAG_SHAPE = /^(--[a-zA-Z][\w-]*(=.*)?|-[a-zA-Z])$/s;

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { encode } from "@toon-format/toon";
 import { AxiError } from "axi-sdk-js";
-import { bool, list, parseArgs, str, TARGET_FLAGS, type CommandSpec } from "../args.js";
+import { bool, parseArgs, str, TARGET_FLAGS, type CommandSpec } from "../args.js";
 import { renderHelp } from "../help.js";
 import { createRegistry, extractParams, READ_OPERATIONS } from "../registry.js";
 import { renderHelpBlock } from "../output.js";
@@ -101,7 +101,7 @@ export async function apiCommand(args: string[], rt: Runtime): Promise<string> {
   url.searchParams.forEach((value, key) => {
     query[key] = value;
   });
-  for (const pair of list(parsed, "--query")) {
+  for (const pair of (parsed.flags["--query"] as string[] | undefined) ?? []) {
     const eq = pair.indexOf("=");
     if (eq <= 0) {
       throw new AxiError(`--query must be key=value: ${pair}`, "VALIDATION_ERROR", ["Pass e.g. `--query per_page=10`"]);

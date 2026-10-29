@@ -388,6 +388,17 @@ describe("api escape hatch", () => {
     expect(stdout).not.toContain(": p\n");
   });
 
+  it("keeps commas inside --query values", async () => {
+    const fetch = fakeFetch({ "GET /api/v1/monitor": { body: [] } });
+    const { exitCode } = await run(
+      ["api", "/api/v1/monitor", "--query", "group_states=alert,warn", "--query", "monitor_tags=env:prod,team:a"],
+      makeRuntime({ env: EU, fetch }),
+    );
+    expect(exitCode).toBe(0);
+    expect(fetch.calls[0]!.url.searchParams.get("group_states")).toBe("alert,warn");
+    expect(fetch.calls[0]!.url.searchParams.get("monitor_tags")).toBe("env:prod,team:a");
+  });
+
   it("refuses writes, credential endpoints and unregistered paths before any request", async () => {
     const fetch = fakeFetch({});
     for (const argv of [
