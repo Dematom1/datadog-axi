@@ -116,7 +116,7 @@ Each Datadog site is fully independent, so the same query on the wrong site just
 | `synthetics list`, `view <id>`, `results <id>`                | Tests and their latest results (never triggers a run)                                                               |
 | `notebooks list`, `view <id>`                                 | Notebooks, cell by cell                                                                                             |
 | `api [GET\|POST] <path>`                                      | Allowlisted read-only endpoints with no dedicated command                                                           |
-| `auth guide\|login\|status\|list\|logout`                     | Key setup guide and credential management                                                                           |
+| `auth guide\|login\|status\|list\|logout`                     | Credential setup guide (pup login or keys) and credential management                                                |
 | `doctor`                                                      | Key validity, site reachability, readable domains, rate-limit headroom, whether the key could write                 |
 | `ctx`                                                         | Offline org, site and credential source                                                                             |
 | `setup hooks [--project]`                                     | Agent session hooks                                                                                                 |

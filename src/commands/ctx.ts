@@ -63,7 +63,7 @@ export async function ctxCommand(args: string[], rt: Runtime): Promise<Record<st
     ctx.credentials === "none configured"
       ? [
           "Set DD_API_KEY, DD_APP_KEY and DD_SITE, or have a human run `datadog-axi auth login --org <name> --site <site> --api-key-stdin`",
-          "Run `datadog-axi auth guide --site <site>` for how to create the keys",
+          "Run `datadog-axi auth guide --site <site>` for both setup routes (pup login or keys)",
         ]
       : ["Run `datadog-axi` for live monitor and incident state", "Run `datadog-axi auth list` to see stored orgs"];
   return { ctx, help: hints };

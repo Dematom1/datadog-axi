@@ -195,7 +195,7 @@ export async function resolveTarget(
   if (!keys) {
     throw new AxiError(`Org "${description.org}" has no keys in the keychain`, "AUTH_REQUIRED", [
       LOGIN_HINT.replace("<name>", description.org).replace("<site>", description.site),
-      `Run \`${guideCommand(description.site, description.org)}\` for how to create the keys`,
+      `Run \`${guideCommand(description.site, description.org)}\` for both setup routes (pup login or keys)`,
     ]);
   }
   return { ...description, auth: { kind: "keys", apiKey: keys.apiKey, appKey: keys.appKey } };

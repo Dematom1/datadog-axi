@@ -49,7 +49,8 @@ export const AUTH_HELP = renderHelp({
   subcommands: [
     {
       spec: GUIDE,
-      summary: "How to create the keys on the org's site: links, the scopes to select, login and checks; offline",
+      summary:
+        "Credential setup guide for the org's site: pup login first, keys as the fallback (links, scopes, checks); offline",
     },
     { spec: LOGIN, summary: "Store an org's keys in the OS keychain and make it the current org; local only" },
     { spec: STATUS, summary: "Check the keys and report which Datadog domains they can read" },
@@ -229,7 +230,7 @@ async function list(args: string[], rt: Runtime): Promise<Record<string, unknown
   const pup = active.source === "pup" ? { pup: active.credentials } : {};
   if (orgs.length === 0) {
     return withHelp({ orgs: "0 stored", environment: env, ...pup, active: active.org }, [
-      "Run `datadog-axi auth guide --site <site>` for how to create the keys",
+      "Run `datadog-axi auth guide --site <site>` for both setup routes (pup login or keys)",
       'A human stores an org with: printf \'%s\\n%s\\n\' "$DD_API_KEY" "$DD_APP_KEY" | datadog-axi auth login --org <name> --site <site> --api-key-stdin',
     ]);
   }
