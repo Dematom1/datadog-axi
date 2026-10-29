@@ -12,8 +12,8 @@ import { describeTarget } from "../target.js";
 /**
  * Local credential management (S7, D4, D-c2). Secrets arrive only on stdin
  * (never argv), a terminal on stdin is refused, nothing ever echoes a key,
- * and there is no interactive or browser login. `auth guide` tells a human
- * how to create the keys instead.
+ * and datadog-axi has no interactive or browser login of its own. `auth guide`
+ * points a human to pup's browser login first and stored keys as the fallback.
  */
 
 const GUIDE: CommandSpec = {
