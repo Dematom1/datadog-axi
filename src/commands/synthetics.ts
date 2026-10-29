@@ -1,5 +1,5 @@
 import { AxiError } from "axi-sdk-js";
-import { intFlag, parseArgs, TARGET_FLAGS, type CommandSpec } from "../args.js";
+import { bool, intFlag, parseArgs, TARGET_FLAGS, type CommandSpec } from "../args.js";
 import { renderHelp } from "../help.js";
 import {
   iso,
@@ -9,6 +9,7 @@ import {
   redactionNote,
   selectFields,
   tagsText,
+  truncate,
   withHelp,
   type FieldSet,
 } from "../render.js";
@@ -58,7 +59,11 @@ const LIST: CommandSpec = {
   },
 };
 
-const VIEW: CommandSpec = { name: "synthetics view", positionals: ["<public_id>"], flags: { ...TARGET_FLAGS } };
+const VIEW: CommandSpec = {
+  name: "synthetics view",
+  positionals: ["<public_id>"],
+  flags: { "--full": { kind: "boolean", description: "Do not truncate the message" }, ...TARGET_FLAGS },
+};
 
 const RESULTS: CommandSpec = {
   name: "synthetics results",
@@ -133,6 +138,8 @@ async function view(args: string[], rt: Runtime): Promise<Record<string, unknown
   const id = checkId(parsed.positionals[0] as string);
   const seam = await connect(rt, parsed);
   const { data: t, redacted } = await seam.call<SyntheticTest>("synthetics.get", { params: { public_id: id } });
+  const message = truncate(t.message ?? "", bool(parsed, "--full") ? Number.POSITIVE_INFINITY : 500);
+  const org = orgSuffix(seam.target);
   return withHelp(
     {
       site: seam.target.site,
@@ -149,11 +156,14 @@ async function view(args: string[], rt: Runtime): Promise<Record<string, unknown
         steps: Array.isArray(t.steps) ? t.steps.length : null,
         monitor_id: t.monitor_id ?? null,
         tags: tagsText(t.tags, 50),
-        message: oneLine(t.message ?? "", 500),
+        message: message.text,
       },
       ...redactionNote(redacted),
     },
-    [`Run \`datadog-axi synthetics results ${id}${orgSuffix(seam.target)}\` for the latest runs`],
+    [
+      `Run \`datadog-axi synthetics results ${id}${org}\` for the latest runs`,
+      ...(message.truncated ? [`Run \`datadog-axi synthetics view ${id}${org} --full\` for the whole message`] : []),
+    ],
   );
 }
 

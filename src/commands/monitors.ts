@@ -185,7 +185,7 @@ async function search(args: string[], rt: Runtime): Promise<Record<string, unkno
 
   const seam = await connect(rt, parsed);
   const { data, redacted } = await seam.call<MonitorSearchResponse>("monitors.search", {
-    query: { query: query || undefined, page, per_page: limit },
+    query: { query: query || undefined, page, per_page: limit, sort: "status,asc" },
   });
 
   const monitors = sortProblemsFirst(data.monitors ?? []);

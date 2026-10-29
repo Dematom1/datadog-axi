@@ -1,5 +1,5 @@
 import { AxiError } from "axi-sdk-js";
-import { intFlag, list, parseArgs, str, TARGET_FLAGS, WINDOW_FLAGS, type CommandSpec } from "../args.js";
+import { bool, intFlag, list, parseArgs, str, TARGET_FLAGS, WINDOW_FLAGS, type CommandSpec } from "../args.js";
 import { renderHelp } from "../help.js";
 import {
   iso,
@@ -69,7 +69,11 @@ const LIST: CommandSpec = {
   },
 };
 
-const VIEW: CommandSpec = { name: "slos view", positionals: ["<id>"], flags: { ...TARGET_FLAGS } };
+const VIEW: CommandSpec = {
+  name: "slos view",
+  positionals: ["<id>"],
+  flags: { "--full": { kind: "boolean", description: "Do not truncate the description" }, ...TARGET_FLAGS },
+};
 
 const STATUS: CommandSpec = {
   name: "slos status",
@@ -160,6 +164,8 @@ async function view(args: string[], rt: Runtime): Promise<Record<string, unknown
   const seam = await connect(rt, parsed);
   const { data, redacted } = await seam.call<{ data?: Slo }>("slos.get", { params: { slo_id: id } });
   const s = data.data ?? {};
+  const description = truncate(s.description ?? "", bool(parsed, "--full") ? Number.POSITIVE_INFINITY : 1000);
+  const org = orgSuffix(seam.target);
   return withHelp(
     {
       site: seam.target.site,
@@ -167,7 +173,7 @@ async function view(args: string[], rt: Runtime): Promise<Record<string, unknown
         id: s.id ?? id,
         name: s.name ?? null,
         type: s.type ?? null,
-        description: truncate(s.description ?? "", 1000).text,
+        description: description.text,
         numerator: s.query?.numerator ?? null,
         denominator: s.query?.denominator ?? null,
         monitor_ids: (s.monitor_ids ?? []).join(" "),
@@ -183,7 +189,10 @@ async function view(args: string[], rt: Runtime): Promise<Record<string, unknown
       })),
       ...redactionNote(redacted),
     },
-    [`Run \`datadog-axi slos status ${s.id ?? id}${orgSuffix(seam.target)}\` for the current SLI`],
+    [
+      `Run \`datadog-axi slos status ${s.id ?? id}${org}\` for the current SLI`,
+      ...(description.truncated ? [`Run \`datadog-axi slos view ${id}${org} --full\` for the whole description`] : []),
+    ],
   );
 }
 

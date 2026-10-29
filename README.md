@@ -160,6 +160,7 @@ Tests never reach a real Datadog endpoint, keychain or credential. Unit tests in
 The response shapes and some behavior come from Datadog's API documentation. The first real verification pass, against a sandbox org with read-scoped keys, is a separate step that the maintainer approves. It should confirm:
 
 - the monitor search syntax for several statuses (`(status:alert OR status:"no data")`) and the `counts` shape
+- that monitor search `sort=status,asc` puts alerting and no-data monitors first across pages (the local severity sort only orders within a page)
 - `logs view` through the v1 list API's `startAt`
 - how span errors are marked across tracers, and trace-by-id via `trace_id:` search
 - incident `state`/`severity` attribute placement, SLO history `error_budget_remaining`, and synthetic result shapes

@@ -73,6 +73,7 @@ describe("monitors", () => {
     const q = fetch.calls[0]!.url.searchParams;
     expect(q.get("query")).toBe('(status:alert OR status:"no data") tag:"env:prod"');
     expect(q.get("per_page")).toBe("3");
+    expect(q.get("sort")).toBe("status,asc");
     expect(stdout).toContain("count: 3 of 126 total");
     const rows = stdout.split("\n").filter((l) => /^ {2}\d{3},/.test(l));
     expect(rows.map((r) => r.split(",")[0]!.trim())).toEqual(["102", "103", "101"]);
@@ -289,6 +290,29 @@ describe("incidents, slos, dashboards", () => {
     const { stdout } = await run(["dashboards", "view", "abc-def-ghi"], makeRuntime({ env: EU, fetch }));
     expect(stdout).toContain(`${"t".repeat(120)}... (truncated, 150 chars total)`);
     expect(stdout).toContain("datadog-axi dashboards view abc-def-ghi --full");
+  });
+});
+
+describe("view truncation", () => {
+  it("mentions --full only when slos view or synthetics view cut text", async () => {
+    const cases: Array<[string[], string, unknown, string]> = [
+      [["slos", "view", "slo1"], "GET /api/v1/slo/slo1", { data: { id: "slo1", description: "d".repeat(1200) } }, "d"],
+      [
+        ["synthetics", "view", "abc-123-def"],
+        "GET /api/v1/synthetics/tests/abc-123-def",
+        { message: "m".repeat(600) },
+        "m",
+      ],
+    ];
+    for (const [argv, route, body, ch] of cases) {
+      const fetch = fakeFetch({ [route]: { body } });
+      const cut = await run(argv, makeRuntime({ env: EU, fetch }));
+      expect(cut.stdout).toContain("chars total)");
+      expect(cut.stdout).toContain(`datadog-axi ${argv.join(" ")} --full`);
+      const full = await run([...argv, "--full"], makeRuntime({ env: EU, fetch }));
+      expect(full.stdout).toContain(ch.repeat(argv[0] === "slos" ? 1200 : 600));
+      expect(full.stdout).not.toContain("--full");
+    }
   });
 });
 
