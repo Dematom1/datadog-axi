@@ -68,6 +68,10 @@ jobs:
       # publish credential and signs provenance, so no npm token is stored.
       id-token: write
     steps:
+      - name: Validate manual publish ref
+        if: ${{ inputs.publish_current && github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/v') }}
+        run: echo "Manual publishing is allowed only from main or a v* tag" >&2; exit 1
+
       # Node 24 bundles npm 11, which trusted publishing requires (>= 11.5.1).
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
