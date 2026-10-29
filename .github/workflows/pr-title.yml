@@ -16,7 +16,8 @@ jobs:
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
-          if [[ ! "$PR_TITLE" =~ ^(feat|fix|chore|ci|docs|refactor|test|perf|build|revert)(\([^)]+\))?!?:\ .*[^[:space:]].* ]]; then
+          pattern='^(feat|fix|chore|ci|docs|refactor|test|perf|build|revert)(\([^)]+\))?!?:[[:space:]]+.*[^[:space:]].*$'
+          if [[ ! "$PR_TITLE" =~ $pattern ]]; then
             echo "PR title must follow Conventional Commits: $PR_TITLE"
             exit 1
           fi
