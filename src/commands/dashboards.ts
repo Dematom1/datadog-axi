@@ -172,8 +172,8 @@ export function flattenWidgets(
     rows.push({
       group,
       type: def.type ?? "unknown",
-      title: oneLine(def.title ?? def.text ?? def.content ?? "", 120),
-      queries: oneLine(queries.join(" ; "), 300),
+      title: oneLine(def.title ?? def.text ?? def.content ?? "", Number.POSITIVE_INFINITY),
+      queries: oneLine(queries.join(" ; "), Number.POSITIVE_INFINITY),
     });
   }
   return rows;
@@ -196,8 +196,14 @@ async function view(args: string[], rt: Runtime): Promise<Record<string, unknown
     return { site: seam.target.site, dashboard: JSON.stringify(data), ...redactionNote(redacted) };
   }
 
-  const widgets = flattenWidgets(data.widgets ?? []);
   const description = truncate(String(data.description ?? ""), 500);
+  let cut = description.truncated;
+  const widgets = flattenWidgets(data.widgets ?? []).map((w) => {
+    const title = truncate(w.title, 120);
+    const queries = truncate(w.queries, 300);
+    cut ||= title.truncated || queries.truncated;
+    return { ...w, title: title.text, queries: queries.text };
+  });
   return withHelp(
     {
       site: seam.target.site,
@@ -217,6 +223,11 @@ async function view(args: string[], rt: Runtime): Promise<Record<string, unknown
       widgets,
       ...redactionNote(redacted),
     },
-    [`Run \`datadog-axi metrics query "<query>"${orgSuffix(seam.target)}\` to evaluate a widget's metric query`],
+    [
+      `Run \`datadog-axi metrics query "<query>"${orgSuffix(seam.target)}\` to evaluate a widget's metric query`,
+      ...(cut
+        ? [`Run \`datadog-axi dashboards view ${id}${orgSuffix(seam.target)} --full\` for the untruncated JSON`]
+        : []),
+    ],
   );
 }

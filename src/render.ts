@@ -65,7 +65,7 @@ export function oneLine(text: string | undefined | null, limit = LIST_TEXT_LIMIT
     return "";
   }
   const flat = text.replace(/\s+/g, " ").trim();
-  return flat.length > limit ? `${flat.slice(0, limit)}...` : flat;
+  return truncate(flat, limit).text;
 }
 
 export function countLine(shown: number, total: number | undefined, noun: string): string {

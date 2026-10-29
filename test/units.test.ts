@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { intFlag, list, parseArgs, type CommandSpec } from "../src/args.js";
 import { buildMonitorQuery } from "../src/commands/monitors.js";
 import { REDACTED, redact } from "../src/redact.js";
-import { rebuildCommand, truncate } from "../src/render.js";
+import { oneLine, rebuildCommand, truncate } from "../src/render.js";
 import { normalizeSite } from "../src/sites.js";
 import { formatWindow, parseTime, resolveWindow } from "../src/time.js";
 import { NOW } from "./helpers.js";
@@ -153,6 +153,8 @@ describe("render helpers", () => {
   it("truncates with the total size only when cut", () => {
     expect(truncate("short", 10)).toEqual({ text: "short", truncated: false });
     expect(truncate("x".repeat(20), 10).text).toBe(`${"x".repeat(10)}... (truncated, 20 chars total)`);
+    expect(oneLine("a\n b", 10)).toBe("a b");
+    expect(oneLine(`${"y".repeat(15)}\n`, 10)).toBe(`${"y".repeat(10)}... (truncated, 15 chars total)`);
   });
 
   it("rebuilds a command without the dropped flags", () => {

@@ -125,6 +125,13 @@ describe("every command stays on the read allowlist (S5)", () => {
     ["api", "/api/v1/monitor"],
   ];
 
+  const API_INVOCATIONS: string[][] = READ_OPERATIONS.filter((op) => op.api).map((op) => {
+    const path = op.path.replace(/\{[a-z_]+\}/g, "x1");
+    return op.method === "POST" ? ["api", "POST", path, "--body-file", "-"] : ["api", path];
+  });
+
+  const BROWSER_TEST = "GET /api/v1/synthetics/tests/abc-123-def";
+
   afterEach(() => vi.unstubAllGlobals());
 
   it("sends only allowed requests, through the injected fetch, and never names an unregistered operation", async () => {
@@ -134,27 +141,46 @@ describe("every command stays on the read allowlist (S5)", () => {
     vi.stubGlobal("fetch", globalFetch);
     const registry = createRegistry(READ_OPERATIONS, []);
     const violations: string[] = [];
+    const hit = new Set<string>();
+    let bodies: Record<string, unknown> = {};
     const fetch = fakeFetch({});
     const classify = (async (url: string, init: RequestInit) => {
       const method = init.method ?? "GET";
       const path = new URL(url).pathname;
-      if (registry.match(method, path).kind !== "allowed") {
+      const match = registry.match(method, path);
+      if (match.kind === "allowed") {
+        hit.add(match.operation.id);
+      } else {
         violations.push(`${method} ${path}`);
       }
       await fetch(url, init);
-      return new Response("{}", { status: 200, headers: { "content-type": "application/json" } });
+      return new Response(JSON.stringify(bodies[`${method} ${path}`] ?? {}), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
     }) as typeof fetch;
 
-    for (const argv of INVOCATIONS) {
+    const runs: Array<[string[], Record<string, unknown>]> = [
+      ...INVOCATIONS.map((argv): [string[], Record<string, unknown>] => [argv, {}]),
+      [["synthetics", "results", "abc-123-def"], { [BROWSER_TEST]: { type: "browser" } }],
+      ...API_INVOCATIONS.map((argv): [string[], Record<string, unknown>] => [argv, {}]),
+    ];
+    for (const [argv, routeBodies] of runs) {
+      bodies = routeBodies;
       const before = fetch.calls.length;
       const { stdout } = await run(
         argv,
-        makeRuntime({ env: { ...ENV_KEYS, DD_SITE: "datadoghq.eu" }, fetch: classify }),
+        makeRuntime({
+          env: { ...ENV_KEYS, DD_SITE: "datadoghq.eu" },
+          fetch: classify,
+          stdin: { isTTY: false, text: "{}" },
+        }),
       );
       expect(fetch.calls.length, `datadog-axi ${argv.join(" ")}`).toBeGreaterThan(before);
       expect(stdout, `datadog-axi ${argv.join(" ")}`).not.toContain("code: REFUSED");
     }
     expect(violations).toEqual([]);
+    expect(READ_OPERATIONS.filter((op) => !hit.has(op.id)).map((op) => op.id)).toEqual([]);
     expect(globalFetch).not.toHaveBeenCalled();
   });
 });

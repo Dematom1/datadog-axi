@@ -279,6 +279,16 @@ describe("incidents, slos, dashboards", () => {
     expect(stdout).toContain("widget_count: 3");
     expect(stdout).toContain('Error rate,"sum:trace.http.request.errors{service:checkout}"\n');
     expect(stdout).toContain('url: "https://app.datadoghq.eu/dashboard/abc-def-ghi/checkout-overview"');
+    expect(stdout).not.toContain("--full");
+  });
+
+  it("shows the total size of cut widget text and mentions --full only then", async () => {
+    const dashboard = fixture<{ widgets: Array<{ definition: { title?: string } }> }>("dashboard-get.json");
+    dashboard.widgets[0]!.definition.title = "t".repeat(150);
+    const fetch = fakeFetch({ "GET /api/v1/dashboard/abc-def-ghi": { body: dashboard } });
+    const { stdout } = await run(["dashboards", "view", "abc-def-ghi"], makeRuntime({ env: EU, fetch }));
+    expect(stdout).toContain(`${"t".repeat(120)}... (truncated, 150 chars total)`);
+    expect(stdout).toContain("datadog-axi dashboards view abc-def-ghi --full");
   });
 });
 

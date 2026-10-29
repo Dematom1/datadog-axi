@@ -58,7 +58,7 @@ Use datadog-axi whenever a task needs Datadog data: what is alerting and why, er
 
 ## Workflow
 
-1. Run \`npx -y datadog-axi\` with no arguments: org, site, monitor counts by status, alerting monitors and active incidents.
+1. Run \`npx -y datadog-axi\` with no arguments: org, site, monitor counts by status, alerting monitors and open incidents.
 2. Drill in command-first: \`monitors --status alert\`, \`monitors view <id>\`, \`logs aggregate "status:error" --by service\`, \`logs search "<query>"\`, \`metrics query "<expr>"\`, \`traces search "<query>"\`.
 3. Time windows use \`--from\` / \`--to\`: \`15m\`, \`1h\`, \`7d\`, \`now-1h\`, RFC3339 with a zone, or epoch seconds/milliseconds. The default is the last hour, and every result echoes the absolute UTC window.
 4. Queries are Datadog query strings, passed through unchanged (\`service:checkout status:error\`, \`avg:system.cpu.user{env:prod} by {host}\`).

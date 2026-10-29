@@ -29,7 +29,7 @@ export const TOP_HELP = `usage: datadog-axi <command> [args] [flags]
 commands[19]:
   (none)=home, monitors, logs, metrics, traces, services, dashboards, incidents, events, hosts, slos, downtimes, synthetics, notebooks, api, auth, doctor, ctx, setup
 summary[19]:
-  (none): Live home view - org, site, monitor counts, alerting monitors, active incidents
+  (none): Live home view - org, site, monitor counts, alerting monitors, open incidents
   monitors: Search monitors (problems first, status counts) and view one
   logs: Search log events, count them by facet, view one event
   metrics: Query timeseries as per-series summaries; browse names, metadata, tags
