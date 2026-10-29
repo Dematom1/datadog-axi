@@ -1,6 +1,6 @@
 import { AxiError } from "axi-sdk-js";
 import { redact } from "./redact.js";
-import { fillPath, type Operation, type Registry } from "./registry.js";
+import { fillPath, matchesTemplate, type Operation, type Registry } from "./registry.js";
 import { apiBaseUrl } from "./sites.js";
 import type { Target } from "./target.js";
 import { VERSION } from "./version.js";
@@ -189,6 +189,11 @@ export class Seam {
 
   private buildUrl(op: Operation, input: CallInput): string {
     const url = new URL(`${this.baseUrl}${fillPath(op.path, input.params)}`);
+    if (!matchesTemplate(op.path, url.pathname)) {
+      throw new AxiError(`Request path ${url.pathname} is not the path of ${op.id}`, "REFUSED", [
+        "Only registered Datadog operations can be called",
+      ]);
+    }
     for (const [key, value] of Object.entries(input.query ?? {})) {
       if (value !== undefined) {
         url.searchParams.set(key, String(value));

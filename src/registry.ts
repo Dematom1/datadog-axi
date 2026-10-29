@@ -13,6 +13,8 @@
  * a test pins that. See ROADMAP.md for the planned write tier.
  */
 
+import { AxiError } from "axi-sdk-js";
+
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 export interface Operation {
@@ -292,8 +294,16 @@ export function fillPath(template: string, params: Record<string, string> = {}):
     if (value === undefined || value.length === 0) {
       throw new Error(`Missing path parameter ${name} for ${template}`);
     }
+    if (value === "." || value === "..") {
+      throw new AxiError(`"${value}" is not a valid ${name}`, "VALIDATION_ERROR", [`Pass a real ${name}`]);
+    }
     return encodeURIComponent(value);
   });
+}
+
+/** Whether a concrete path is one the template describes. */
+export function matchesTemplate(template: string, path: string): boolean {
+  return compileTemplate(template).test(path);
 }
 
 /** Inverse of `fillPath`: read the template's parameters out of a concrete path. */

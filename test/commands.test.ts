@@ -212,6 +212,20 @@ describe("metrics", () => {
     expect(stdout).not.toContain("--full");
   });
 
+  it("rejects dot-segment names instead of escaping the registered path", async () => {
+    const fetch = fakeFetch({});
+    for (const argv of [
+      ["metrics", "tags", ".."],
+      ["metrics", "view", "."],
+      ["incidents", "view", ".."],
+    ]) {
+      const { stdout, exitCode } = await run(argv, makeRuntime({ env: EU, fetch }));
+      expect(exitCode).toBe(2);
+      expect(stdout).toContain("VALIDATION_ERROR");
+    }
+    expect(fetch.calls).toHaveLength(0);
+  });
+
   it("mentions --full for tags only when a sample was cut", async () => {
     const hosts = Array.from({ length: 7 }, (_, i) => `host:h${i}`);
     const fetch = fakeFetch({

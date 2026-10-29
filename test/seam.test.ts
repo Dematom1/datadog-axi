@@ -210,6 +210,31 @@ describe("seam requests", () => {
     expect(fetch.calls).toHaveLength(0);
   });
 
+  it("rejects dot-segment path parameters before any request", async () => {
+    const fetch = fakeFetch({});
+    for (const value of [".", ".."]) {
+      expect(await codeOf(seamWith(fetch).call("metrics.all_tags", { params: { metric_name: value } }))).toBe(
+        "VALIDATION_ERROR",
+      );
+    }
+    expect(fetch.calls).toHaveLength(0);
+  });
+
+  it("refuses a built URL whose path no longer matches the operation template", async () => {
+    const fetch = fakeFetch({});
+    const op = {
+      id: "test.dotted",
+      method: "GET" as const,
+      path: "/api/v1/hosts/../validate",
+      access: "read" as const,
+      domain: "hosts",
+      api: false,
+    };
+    const seam = seamWith(fetch, KEYS_TARGET, { registry: createRegistry([op], []) });
+    expect(await codeOf(seam.call("test.dotted"))).toBe("REFUSED");
+    expect(fetch.calls).toHaveLength(0);
+  });
+
   it("redacts every response and reports the count", async () => {
     const fetch = fakeFetch({ "GET /api/v1/monitor": { body: [{ name: "m", options: { secret: "s" } }] } });
     const result = await seamWith(fetch).call<Array<{ options: { secret: string } }>>("monitors.list");
