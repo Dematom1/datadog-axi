@@ -3,6 +3,12 @@ name: release-please
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      publish_current:
+        description: Publish the current version if it is not already on npm
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -28,12 +34,12 @@ jobs:
   # "Re-run failed jobs", which reuses release-please's outputs.
   build:
     needs: release-please
-    if: ${{ needs.release-please.outputs.release_created }}
+    if: ${{ needs.release-please.outputs.release_created || inputs.publish_current }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          ref: ${{ needs.release-please.outputs.tag_name }}
+          ref: ${{ needs.release-please.outputs.tag_name || github.sha }}
           persist-credentials: false
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -72,4 +78,12 @@ jobs:
         with:
           name: package
 
-      - run: npm publish ./datadog-axi-*.tgz --access public --provenance
+      - name: Skip if version already exists
+        id: version
+        run: |
+          version=$(tar -xOzf datadog-axi-*.tgz package/package.json | node -p "JSON.parse(require('fs').readFileSync(0, 'utf8')).version")
+          if npm view "datadog-axi@$version" version >/dev/null 2>&1; then
+            echo "already_published=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: ${{ steps.version.outputs.already_published != 'true' }}
+        run: npm publish ./datadog-axi-*.tgz --access public --provenance
