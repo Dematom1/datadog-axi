@@ -33,6 +33,9 @@
     "README.md",
     "ROADMAP.md"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
     "node": "^20.19.0 || >=22.12.0"
   },

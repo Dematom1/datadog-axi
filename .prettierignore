@@ -3,3 +3,5 @@ node_modules/
 package-lock.json
 skills/
 .claude/
+CHANGELOG.md
+.release-please-manifest.json
