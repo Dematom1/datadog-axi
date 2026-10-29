@@ -34,7 +34,7 @@
     "ROADMAP.md"
   ],
   "engines": {
-    "node": ">=20"
+    "node": "^20.19.0 || >=22.12.0"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -45,7 +45,7 @@
     "format:check": "prettier --check .",
     "build:skill": "npm run build && node dist/scripts/build-skill.js",
     "check:skill": "npm run build && node dist/scripts/build-skill.js --check",
-    "prepublishOnly": "npm run build && node dist/scripts/build-skill.js --check"
+    "prepack": "npm run build && node dist/scripts/build-skill.js --check"
   },
   "dependencies": {
     "@napi-rs/keyring": "2.1.1",

@@ -35,7 +35,7 @@ v1 is read-only. It sends no writes, and write-like requests are refused with a 
 
 ## Install
 
-Requires Node.js 20 or newer.
+Requires Node.js 20.19+ or 22.12+.
 
 ```sh
 npm install -g datadog-axi    # or run on demand: npx -y datadog-axi

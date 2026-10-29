@@ -258,7 +258,14 @@ export class Seam {
         continue;
       }
 
-      const text = await response.text();
+      let text: string;
+      try {
+        text = await response.text();
+      } catch (error) {
+        // The timeout signal also covers the body read; map it like a failed connection.
+        const timedOut = error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
+        throw this.unreachable(timedOut ? "the response timed out" : "the response was cut off");
+      }
       if (!response.ok) {
         throw this.translate(response.status, text);
       }

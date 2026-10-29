@@ -121,14 +121,15 @@ async function listSlos(args: string[], rt: Runtime): Promise<Record<string, unk
   const query = parsed.positionals[0];
 
   const seam = await connect(rt, parsed);
-  const { data, redacted } = await seam.call<{ data?: Slo[]; metadata?: { page?: { total_count?: number } } }>(
-    "slos.list",
-    {
-      query: { query, tags_query: tags.length > 0 ? tags.join(",") : undefined, limit, offset },
-    },
-  );
+  const { data, redacted } = await seam.call<{
+    data?: Slo[];
+    metadata?: { page?: { total_count?: number; total_filtered_count?: number } };
+  }>("slos.list", {
+    query: { query, tags_query: tags.length > 0 ? tags.join(",") : undefined, limit, offset },
+  });
   const slos = data.data ?? [];
-  const total = data.metadata?.page?.total_count;
+  // total_filtered_count counts matches for the query and tags; total_count ignores them.
+  const total = data.metadata?.page?.total_filtered_count ?? data.metadata?.page?.total_count;
   const org = orgSuffix(seam.target);
 
   if (slos.length === 0) {

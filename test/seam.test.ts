@@ -194,6 +194,7 @@ describe("seam requests", () => {
     expect(call.headers["dd-api-key"]).toBe("api-key-value-123456");
     expect(call.headers["dd-application-key"]).toBe("app-key-value-123456");
     expect(call.headers.authorization).toBeUndefined();
+    expect(call.redirect).toBe("error");
   });
 
   it("uses a bearer header for DD_ACCESS_TOKEN", async () => {
@@ -369,5 +370,23 @@ describe("write gate (S3)", () => {
     const result = await seam.write("test.monitor_mute", { params: { monitor_id: "12" } }, { ...gate, execute: true });
     expect(result).toMatchObject({ data: { id: 12 } });
     expect(fetch.calls).toHaveLength(1);
+  });
+});
+
+describe("seam body reads", () => {
+  it("maps a timeout while reading the body to SERVER_UNREACHABLE", async () => {
+    const slowBody = Object.assign(
+      async () =>
+        ({
+          ok: true,
+          status: 200,
+          headers: new Headers(),
+          text: async () => {
+            throw new DOMException("The operation timed out.", "TimeoutError");
+          },
+        }) as unknown as Response,
+      { calls: [] },
+    );
+    expect(await codeOf(seamWith(slowBody as never).call("hosts.totals"))).toBe("SERVER_UNREACHABLE");
   });
 });

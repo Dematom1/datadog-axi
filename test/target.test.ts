@@ -113,3 +113,21 @@ describe("config file", () => {
     expect(() => loadConfig(rt.configPath)).toThrow(/has no site/);
   });
 });
+
+describe("hardening", () => {
+  it("refuses a hand-edited config whose site is not a Datadog site", () => {
+    const rt = makeRuntime({ config: { orgs: { prod: { site: "evil.example.com" } } } });
+    expect(() => loadConfig(rt.configPath)).toThrow(/unknown site/);
+  });
+
+  it("normalizes a stored region name to its site", () => {
+    const rt = makeRuntime({ config: { orgs: { prod: { site: "EU1" } } } });
+    expect(loadConfig(rt.configPath).orgs.prod).toEqual({ site: "datadoghq.eu" });
+  });
+
+  it("never resolves inherited names such as constructor as orgs", async () => {
+    expect(await codeOf(resolveTarget({ org: "constructor" }, {}, CONFIG, memoryKeychain()))).toBe("NOT_FOUND");
+    const current = { ...CONFIG, current: "toString" };
+    expect(describeTarget({}, {}, current)).toMatchObject({ source: "none" });
+  });
+});

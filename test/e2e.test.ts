@@ -58,10 +58,18 @@ function runBin(
   args: string[],
   env: NodeJS.ProcessEnv,
 ): Promise<{ stdout: string; stderr: string; code: number }> {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     execFile(process.execPath, [bin, ...args], { env, timeout: 15_000 }, (error, stdout, stderr) => {
-      const code =
-        error && typeof (error as { code?: unknown }).code === "number" ? (error as { code: number }).code : 0;
+      if (!error) {
+        resolve({ stdout, stderr, code: 0 });
+        return;
+      }
+      const code = (error as { code?: unknown }).code;
+      if (typeof code !== "number") {
+        // A kill (timeout) or spawn failure is never a successful run.
+        reject(new Error(`${bin} ${args.join(" ")} did not exit normally: ${error.message}`));
+        return;
+      }
       resolve({ stdout, stderr, code });
     });
   });

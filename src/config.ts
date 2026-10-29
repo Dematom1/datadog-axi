@@ -2,6 +2,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSy
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { AxiError } from "axi-sdk-js";
+import { normalizeSite } from "./sites.js";
 
 /**
  * Local tool config. It holds org names, each org's pinned site, the current
@@ -73,7 +74,21 @@ export function loadConfig(path: string): Config {
           `Re-run \`datadog-axi auth login --org ${name} --site <site> --api-key-stdin\``,
         ]);
       }
-      config.orgs[name] = { site };
+      if (!ORG_NAME.test(name) || name === "env") {
+        throw new AxiError(`Org name "${name}" in ${path} is not valid`, "CONFIG_INVALID", [
+          'Use letters, digits, ".", "_" or "-" (max 63 chars); "env" is reserved',
+        ]);
+      }
+      // Only known Datadog sites ever receive credentials, even from a hand-edited file.
+      let normalized: string;
+      try {
+        normalized = normalizeSite(site);
+      } catch {
+        throw new AxiError(`Org "${name}" in ${path} has an unknown site: ${site}`, "CONFIG_INVALID", [
+          `Re-run \`datadog-axi auth login --org ${name} --site <site> --api-key-stdin\` with a Datadog site`,
+        ]);
+      }
+      config.orgs[name] = { site: normalized };
     }
   }
 
@@ -105,6 +120,11 @@ export function saveConfig(path: string, config: Config): void {
 }
 
 const ORG_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$/;
+
+/** Own-property lookup, so names like `constructor` never resolve to `Object.prototype`. */
+export function findOrg(config: Config, name: string): OrgEntry | undefined {
+  return Object.hasOwn(config.orgs, name) ? config.orgs[name] : undefined;
+}
 
 export function validateOrgName(name: string): string {
   if (!ORG_NAME.test(name) || name === "env") {

@@ -1,6 +1,6 @@
 import { AxiError } from "axi-sdk-js";
 import { bool, parseArgs, str, TARGET_FLAGS, type CommandSpec } from "../args.js";
-import { loadConfig, saveConfig, validateOrgName } from "../config.js";
+import { findOrg, loadConfig, saveConfig, validateOrgName } from "../config.js";
 import { renderHelp } from "../help.js";
 import { probeDomains, validateKeys } from "../probe.js";
 import { orgSuffix, withHelp } from "../render.js";
@@ -107,7 +107,14 @@ async function login(args: string[], rt: Runtime): Promise<Record<string, unknow
     ]);
   }
 
+  // Read and validate the config before touching the keychain, so a bad config
+  // never leaves a stored secret without an org record (or overwrites working keys).
+  const config = loadConfig(rt.configPath);
+  const replaced = findOrg(config, org) !== undefined;
+
+  let previous;
   try {
+    previous = await rt.keychain.get(org);
     await rt.keychain.set(org, { apiKey, appKey });
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
@@ -115,11 +122,18 @@ async function login(args: string[], rt: Runtime): Promise<Record<string, unknow
       "Unlock the keychain and retry, or use DD_API_KEY and DD_APP_KEY in the environment instead",
     ]);
   }
-  const config = loadConfig(rt.configPath);
-  const replaced = config.orgs[org] !== undefined;
   config.orgs[org] = { site };
   config.current = org;
-  saveConfig(rt.configPath, config);
+  try {
+    saveConfig(rt.configPath, config);
+  } catch (error) {
+    // Undo the keychain write so keys and config never disagree.
+    await (previous ? rt.keychain.set(org, previous) : rt.keychain.delete(org)).catch(() => undefined);
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new AxiError(`Could not save the config file: ${reason}`, "CONFIG_INVALID", [
+      `Check that ${rt.configPath} and its directory are writable, then retry`,
+    ]);
+  }
 
   return withHelp(
     { auth: { org, site: `${site} (${regionOf(site)})`, stored: "OS keychain", current: true, replaced } },
@@ -177,7 +191,7 @@ async function logout(args: string[], rt: Runtime): Promise<Record<string, unkno
     ]);
   }
   const config = loadConfig(rt.configPath);
-  const known = config.orgs[orgName] !== undefined;
+  const known = findOrg(config, orgName) !== undefined;
   let deleted = false;
   try {
     deleted = await rt.keychain.delete(orgName);

@@ -1,4 +1,5 @@
-import { readFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 import { describe, expect, it } from "vitest";
 import { ENV_KEYS, fakeFetch, fixture, makeRuntime, run } from "./helpers.js";
 
@@ -368,6 +369,16 @@ describe("api escape hatch", () => {
 });
 
 describe("auth", () => {
+  it("validates the config before writing to the keychain", async () => {
+    const rt = makeRuntime({ stdin: { isTTY: false, text: `${"k".repeat(32)}\n${"s".repeat(40)}\n` } });
+    mkdirSync(dirname(rt.configPath), { recursive: true });
+    writeFileSync(rt.configPath, "{ not json");
+    const { stdout, exitCode } = await run(["auth", "login", "--org", "prod", "--site", "EU1", "--api-key-stdin"], rt);
+    expect(exitCode).toBe(1);
+    expect(stdout).toContain("code: CONFIG_INVALID");
+    expect(await rt.keychain.get("prod")).toBeNull();
+  });
+
   it("logs in from stdin only, stores keys in the keychain and never in config", async () => {
     const rt = makeRuntime({ stdin: { isTTY: false, text: `${"k".repeat(32)}\n${"s".repeat(40)}\n` } });
     const { stdout, exitCode } = await run(["auth", "login", "--org", "prod", "--site", "EU1", "--api-key-stdin"], rt);
@@ -495,5 +506,37 @@ describe("flag hygiene", () => {
     expect(exitCode).toBe(0);
     expect(stdout).toContain("flags{monitors search}:");
     expect(stdout).toContain("flags{target}:");
+  });
+});
+
+describe("review hardening", () => {
+  it("labels a 1000-event v1 response as a lower bound", async () => {
+    const events = Array.from({ length: 1000 }, (_, i) => ({ id: i, title: `e${i}`, date_happened: 1793228000 - i }));
+    const fetch = fakeFetch({ "GET /api/v1/events": { body: { events } } });
+    const { stdout } = await run(["events", "list"], makeRuntime({ env: EU, fetch }));
+    expect(stdout).toContain("50 of at least 1000 in window");
+    expect(stdout).toContain("More events may exist");
+  });
+
+  it("counts SLOs with total_filtered_count when a filter is applied", async () => {
+    const fetch = fakeFetch({
+      "GET /api/v1/slo": {
+        body: {
+          data: [{ id: "s1", name: "Checkout" }],
+          metadata: { page: { total_count: 90, total_filtered_count: 1 } },
+        },
+      },
+    });
+    const { stdout } = await run(["slos", "list", "checkout"], makeRuntime({ env: EU, fetch }));
+    expect(stdout).toContain("count: 1 of 1 total");
+    expect(stdout).not.toContain("--offset");
+  });
+
+  it("rejects inherited property names in --fields", async () => {
+    for (const field of ["__proto__", "constructor", "valueOf"]) {
+      const { stdout, exitCode } = await run(["hosts", "list", "--fields", field], makeRuntime({ env: EU }));
+      expect(exitCode, field).toBe(2);
+      expect(stdout).toContain("code: VALIDATION_ERROR");
+    }
   });
 });

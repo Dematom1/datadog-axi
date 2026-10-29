@@ -33,6 +33,7 @@ export interface RecordedRequest {
   url: URL;
   headers: Record<string, string>;
   body: unknown;
+  redirect: RequestInit["redirect"];
 }
 
 export interface FakeResponse {
@@ -58,6 +59,7 @@ export function fakeFetch(routes: Record<string, Route | Route[]>): FetchLike & 
       url: parsed,
       headers,
       body: typeof init.body === "string" ? JSON.parse(init.body) : undefined,
+      redirect: init.redirect,
     };
     calls.push(req);
     const key = `${req.method} ${parsed.pathname}`;

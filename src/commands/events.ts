@@ -75,6 +75,8 @@ const SEARCH_FIELDS: FieldSet<EventV2> = {
   defaults: ["time", "title", "source", "status"],
 };
 
+const EVENTS_V1_PAGE = 1000;
+
 const LIST: CommandSpec = {
   name: "events list",
   flags: {
@@ -169,14 +171,29 @@ async function listEvents(args: string[], rt: Runtime): Promise<Record<string, u
   }
 
   const shown = events.slice(0, limit);
+  // The v1 endpoint returns at most 1000 events per request, so a full page is a lower bound.
+  const capped = events.length >= EVENTS_V1_PAGE;
+  const hints: string[] = [];
+  if (capped) {
+    hints.push(
+      `More events may exist: narrow the window or filters, e.g. ${rebuildCommand("datadog-axi events list", args, ["--from", "--to"])} --from 1h`,
+    );
+  }
+  if (events.length > limit) {
+    hints.push(
+      `Pass \`--limit ${Math.min(events.length, 1000)}\` to see all ${events.length}${capped ? " returned" : ""}`,
+    );
+  }
   return withHelp(
     {
       ...header,
-      count: `${shown.length} of ${events.length} in window`,
+      count: capped
+        ? `${shown.length} of at least ${events.length} in window (Datadog returned its 1000-event maximum)`
+        : `${shown.length} of ${events.length} in window`,
       events: project(shown, LIST_FIELDS, fields),
       ...redactionNote(redacted),
     },
-    events.length > limit ? [`Pass \`--limit ${Math.min(events.length, 1000)}\` to see all ${events.length}`] : [],
+    hints,
   );
 }
 

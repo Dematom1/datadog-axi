@@ -18,7 +18,7 @@ export interface FieldSet<T> {
 /** Defaults plus any `--fields` extras, validated against the known set. */
 export function selectFields<T>(parsed: ParsedArgs, set: FieldSet<T>, command: string): string[] {
   const extra = list(parsed, "--fields");
-  const unknown = extra.filter((f) => !(f in set.all));
+  const unknown = extra.filter((f) => !Object.hasOwn(set.all, f));
   if (unknown.length > 0) {
     throw new AxiError(
       `Unknown field${unknown.length > 1 ? "s" : ""} for \`${command}\`: ${unknown.join(", ")}`,

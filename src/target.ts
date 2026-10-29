@@ -1,5 +1,5 @@
 import { AxiError } from "axi-sdk-js";
-import type { Config } from "./config.js";
+import { findOrg, type Config } from "./config.js";
 import type { Keychain } from "./keychain.js";
 import { DEFAULT_SITE, normalizeSite } from "./sites.js";
 
@@ -65,7 +65,7 @@ export function describeTarget(input: TargetInput, env: NodeJS.ProcessEnv, confi
   const flagSite = input.site !== undefined ? normalizeSite(input.site) : undefined;
 
   if (input.org !== undefined) {
-    const entry = config.orgs[input.org];
+    const entry = findOrg(config, input.org);
     if (!entry) {
       throw new AxiError(`No stored org named "${input.org}"`, "NOT_FOUND", [
         "Run `datadog-axi auth list` to see stored orgs",
@@ -95,7 +95,7 @@ export function describeTarget(input: TargetInput, env: NodeJS.ProcessEnv, confi
   }
 
   if (config.current !== undefined) {
-    const entry = config.orgs[config.current];
+    const entry = findOrg(config, config.current);
     if (entry) {
       assertPinnedSite(config.current, entry.site, flagSite);
       return {

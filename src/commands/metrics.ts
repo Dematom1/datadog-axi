@@ -314,7 +314,12 @@ async function tags(args: string[], rt: Runtime): Promise<Record<string, unknown
     const i = tag.indexOf(":");
     const key = i === -1 ? tag : tag.slice(0, i);
     const value = i === -1 ? "" : tag.slice(i + 1);
-    byKey.set(key, [...(byKey.get(key) ?? []), value]);
+    const values = byKey.get(key);
+    if (values) {
+      values.push(value);
+    } else {
+      byKey.set(key, [value]);
+    }
   }
   if (byKey.size === 0) {
     return withHelp({ site: seam.target.site, metric: name, tags: "0 tag keys" }, [
