@@ -1,6 +1,6 @@
 # Contributing
 
-All contributions must go through the [no-mistakes](https://github.com/kunchenguid/no-mistakes) pipeline. Pull requests that have not passed it are not eligible to merge. Use a Conventional Commit title for every pull request.
+All contributions must go through the [no-mistakes](https://github.com/kunchenguid/no-mistakes) pipeline. Pull requests that have not passed it are not eligible to merge. Every pull request title must use a Conventional Commit type: `feat`, `fix`, `chore`, `ci`, `docs`, `refactor`, `test`, `perf`, `build`, or `revert`. A title may include a scope in parentheses and `!` before the colon.
 
 Review each proposed change against the existing contract and classify its effect:
 
