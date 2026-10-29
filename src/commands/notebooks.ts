@@ -25,7 +25,9 @@ interface Notebook {
     status?: string;
     cells?: Array<{
       id?: string;
-      attributes?: { definition?: { type?: string; text?: string; title?: string; requests?: unknown } };
+      attributes?: {
+        definition?: { type?: string; text?: string; title?: string; requests?: unknown; query?: string };
+      };
     }>;
   };
 }
@@ -136,7 +138,9 @@ async function view(args: string[], rt: Runtime): Promise<Record<string, unknown
     const raw =
       def.type === "markdown"
         ? (def.text ?? "")
-        : [def.title ?? "", widgetQueries(def.requests).join(" ; ")].filter(Boolean).join(": ");
+        : [def.title ?? "", widgetQueries(def.requests ?? (def.query ? { query: def.query } : undefined)).join(" ; ")]
+            .filter(Boolean)
+            .join(": ");
     const t = full ? { text: raw, truncated: false } : truncate(oneLine(raw, Number.POSITIVE_INFINITY), 300);
     truncated ||= t.truncated;
     return { type: def.type ?? "unknown", content: t.text };

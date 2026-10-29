@@ -323,7 +323,14 @@ export function extractParams(template: string, path: string): Record<string, st
   const match = new RegExp(`^${pattern}$`).exec(path);
   const params: Record<string, string> = {};
   names.forEach((name, i) => {
-    params[name] = decodeURIComponent(match?.[i + 1] ?? "");
+    const raw = match?.[i + 1] ?? "";
+    try {
+      params[name] = decodeURIComponent(raw);
+    } catch {
+      throw new AxiError(`"${raw}" is not a valid ${name}: malformed percent-encoding`, "VALIDATION_ERROR", [
+        "Percent-encode reserved characters as %XX with two hex digits",
+      ]);
+    }
   });
   return params;
 }

@@ -122,8 +122,9 @@ export async function apiCommand(args: string[], rt: Runtime): Promise<string> {
     throw new AxiError("GET requests take no body", "VALIDATION_ERROR", ["Use `--query key=value` instead"]);
   }
 
+  const params = extractParams(op.path, path);
   const seam = await connect(rt, parsed);
-  const { data, redacted } = await seam.call(op.id, { params: extractParams(op.path, path), query, body });
+  const { data, redacted } = await seam.call(op.id, { params, query, body });
 
   const header = encode({
     request: `${method} ${path}`,

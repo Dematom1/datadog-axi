@@ -187,16 +187,22 @@ export function bool(parsed: ParsedArgs, name: string): boolean {
   return parsed.flags[name] === true;
 }
 
-/** A repeatable flag; each value may also be comma separated. */
+/** A repeatable flag; each value may also be comma separated. A given flag must carry at least one value. */
 export function list(parsed: ParsedArgs, name: string): string[] {
   const v = parsed.flags[name];
   if (!Array.isArray(v)) {
     return [];
   }
-  return v
+  const values = v
     .flatMap((item) => item.split(","))
     .map((item) => item.trim())
     .filter((item) => item.length > 0);
+  if (values.length === 0) {
+    throw new AxiError(`${name} needs at least one value`, "VALIDATION_ERROR", [
+      `Pass a value to \`${name}\`, or drop the flag`,
+    ]);
+  }
+  return values;
 }
 
 export function intFlag(

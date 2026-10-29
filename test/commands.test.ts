@@ -621,6 +621,48 @@ describe("review hardening", () => {
     expect(stdout).not.toContain("--offset");
   });
 
+  it("rejects a list flag with no values instead of dropping the filter", async () => {
+    const fetch = fakeFetch({});
+    for (const value of [",", " , "]) {
+      const { stdout, exitCode } = await run(
+        ["monitors", "search", "--status", value],
+        makeRuntime({ env: EU, fetch }),
+      );
+      expect(exitCode, value).toBe(2);
+      expect(stdout).toContain("--status needs at least one value");
+    }
+    expect(fetch.calls).toHaveLength(0);
+  });
+
+  it("shows the top-level query of a notebook cell without requests", async () => {
+    const fetch = fakeFetch({
+      "GET /api/v1/notebooks/7": {
+        body: {
+          data: {
+            id: 7,
+            attributes: {
+              name: "Checkout triage",
+              cells: [
+                { attributes: { definition: { type: "log_stream", title: "Errors", query: "service:checkout" } } },
+              ],
+            },
+          },
+        },
+      },
+    });
+    const { stdout } = await run(["notebooks", "view", "7"], makeRuntime({ env: EU, fetch }));
+    expect(stdout).toContain("Errors: service:checkout");
+  });
+
+  it("rejects malformed percent-encoding in an api path before any request", async () => {
+    const fetch = fakeFetch({});
+    const { stdout, exitCode } = await run(["api", "/api/v1/monitor/%zz"], makeRuntime({ env: EU, fetch }));
+    expect(exitCode).toBe(2);
+    expect(stdout).toContain("code: VALIDATION_ERROR");
+    expect(stdout).toContain("malformed percent-encoding");
+    expect(fetch.calls).toHaveLength(0);
+  });
+
   it("rejects inherited property names in --fields", async () => {
     for (const field of ["__proto__", "constructor", "valueOf"]) {
       const { stdout, exitCode } = await run(["hosts", "list", "--fields", field], makeRuntime({ env: EU }));
