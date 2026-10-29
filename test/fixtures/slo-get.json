@@ -1,0 +1,16 @@
+{
+  "data": {
+    "id": "slo123",
+    "name": "Checkout availability",
+    "type": "metric",
+    "thresholds": [{ "target": 99.9, "timeframe": "30d", "warning": 99.95 }],
+    "tags": ["team:checkout"],
+    "query": {
+      "numerator": "sum:requests.ok{service:checkout}.as_count()",
+      "denominator": "sum:requests{service:checkout}.as_count()"
+    },
+    "created_at": 1780000000,
+    "modified_at": 1790000000,
+    "creator": { "handle": "dana@example.com" }
+  }
+}

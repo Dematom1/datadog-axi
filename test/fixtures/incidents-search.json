@@ -1,0 +1,38 @@
+{
+  "data": {
+    "type": "incidents_search_results",
+    "attributes": {
+      "facets": {},
+      "incidents": [
+        {
+          "data": {
+            "id": "00000000-aaaa-0000-0000-000000000001",
+            "type": "incidents",
+            "attributes": {
+              "title": "Checkout payments failing",
+              "public_id": 42,
+              "state": "active",
+              "severity": "SEV-2",
+              "created": "2026-10-28T11:30:00.000Z",
+              "customer_impacted": true
+            }
+          }
+        },
+        {
+          "data": {
+            "id": "00000000-aaaa-0000-0000-000000000002",
+            "type": "incidents",
+            "attributes": {
+              "title": "Search latency",
+              "public_id": 41,
+              "fields": { "state": { "value": "stable" }, "severity": { "value": "SEV-4" } },
+              "created": "2026-10-27T08:00:00.000Z",
+              "customer_impacted": false
+            }
+          }
+        }
+      ],
+      "total": 2
+    }
+  }
+}

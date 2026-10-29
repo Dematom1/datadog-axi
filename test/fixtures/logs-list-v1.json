@@ -1,0 +1,17 @@
+{
+  "logs": [
+    {
+      "id": "AQAAAZLogOne",
+      "content": {
+        "timestamp": "2026-10-28T11:58:00.000Z",
+        "host": "web-1",
+        "service": "checkout",
+        "message": "payment provider timeout after 30s order=1234",
+        "tags": ["env:prod", "version:2.4.1"],
+        "attributes": { "status": "error", "http": { "status_code": 504 }, "authorization": "Bearer abc" }
+      }
+    }
+  ],
+  "nextLogId": "AQAAAZLogTwo",
+  "status": "done"
+}

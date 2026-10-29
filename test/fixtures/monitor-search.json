@@ -1,0 +1,50 @@
+{
+  "counts": {
+    "status": [
+      { "count": 120, "name": "OK" },
+      { "count": 3, "name": "Alert" },
+      { "count": 2, "name": "No Data" },
+      { "count": 1, "name": "Warn" }
+    ],
+    "type": [{ "count": 126, "name": "metric" }]
+  },
+  "metadata": { "page": 0, "page_count": 2, "per_page": 3, "total_count": 126 },
+  "monitors": [
+    {
+      "id": 101,
+      "name": "CPU high on web",
+      "status": "OK",
+      "type": "metric alert",
+      "tags": ["env:prod", "team:web"],
+      "query": "avg(last_5m):avg:system.cpu.user{env:prod} > 90",
+      "priority": 3,
+      "creator": { "handle": "alice@example.com" },
+      "last_triggered_ts": 1793180000,
+      "overall_state_modified": 1793190000
+    },
+    {
+      "id": 102,
+      "name": "Checkout error rate",
+      "status": "Alert",
+      "type": "query alert",
+      "tags": ["env:prod", "service:checkout"],
+      "query": "sum(last_5m):sum:trace.http.request.errors{service:checkout}.as_count() > 50",
+      "priority": 1,
+      "creator": { "handle": "bob@example.com" },
+      "last_triggered_ts": 1793225000,
+      "overall_state_modified": 1793225000
+    },
+    {
+      "id": 103,
+      "name": "Agent heartbeat",
+      "status": "No Data",
+      "type": "service check",
+      "tags": ["env:prod"],
+      "query": "\"datadog.agent.up\".over(\"*\").by(\"host\").last(2).count_by_status()",
+      "priority": null,
+      "creator": { "handle": "carol@example.com" },
+      "last_triggered_ts": null,
+      "overall_state_modified": 1793200000
+    }
+  ]
+}

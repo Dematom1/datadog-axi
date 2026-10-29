@@ -1,0 +1,7 @@
+{
+  "data": {
+    "overall": { "sli_value": 99.82, "error_budget_remaining": { "30d": -80.0 } },
+    "thresholds": { "30d": { "target": 99.9 } },
+    "type": "metric"
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "data": [
+    {
+      "id": "AQAAAZLogOne",
+      "type": "log",
+      "attributes": {
+        "timestamp": "2026-10-28T11:58:00.000Z",
+        "status": "error",
+        "service": "checkout",
+        "host": "web-1",
+        "message": "payment provider timeout after 30s order=1234",
+        "tags": ["env:prod", "version:2.4.1"],
+        "attributes": {
+          "http": { "status_code": 504 },
+          "api_key": "should-never-print",
+          "user": { "password": "hunter2" }
+        }
+      }
+    },
+    {
+      "id": "AQAAAZLogTwo",
+      "type": "log",
+      "attributes": {
+        "timestamp": "2026-10-28T11:57:00.000Z",
+        "status": "error",
+        "service": "checkout",
+        "host": "web-2",
+        "message": "payment provider timeout after 30s order=1235",
+        "tags": ["env:prod"],
+        "attributes": {}
+      }
+    }
+  ],
+  "meta": { "page": { "after": "eyJhZnRlciI6Ik5FWFQifQ" }, "status": "done" },
+  "links": { "next": "https://api.datadoghq.com/api/v2/logs/events?page[cursor]=eyJhZnRlciI6Ik5FWFQifQ" }
+}

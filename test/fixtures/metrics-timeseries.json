@@ -1,0 +1,16 @@
+{
+  "data": {
+    "type": "timeseries_response",
+    "attributes": {
+      "series": [
+        { "group_tags": ["host:web-1"], "query_index": 0, "unit": [{ "name": "percent" }, null] },
+        { "group_tags": ["host:web-2"], "query_index": 0, "unit": [{ "name": "percent" }, null] }
+      ],
+      "times": [1793228400000, 1793228460000, 1793228520000, 1793228580000],
+      "values": [
+        [10, 20, null, 30],
+        [50, 70, 90, 80]
+      ]
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "id": 102,
+  "name": "Checkout error rate",
+  "type": "query alert",
+  "overall_state": "Alert",
+  "query": "sum(last_5m):sum:trace.http.request.errors{service:checkout} by {host}.as_count() > 50",
+  "message": "Checkout errors are high. @slack-checkout-oncall\nRunbook: https://wiki.example.com/checkout",
+  "tags": ["env:prod", "service:checkout"],
+  "priority": 1,
+  "created": "2026-01-10T09:00:00.000000+00:00",
+  "modified": "2026-10-01T10:00:00.000000+00:00",
+  "creator": { "handle": "bob@example.com" },
+  "options": { "thresholds": { "critical": 50 } },
+  "state": {
+    "groups": {
+      "host:web-1": { "status": "Alert", "last_triggered_ts": 1793225000 },
+      "host:web-2": { "status": "OK", "last_triggered_ts": 1793100000 },
+      "host:web-3": { "status": "Warn", "last_triggered_ts": 1793224000 }
+    }
+  }
+}
