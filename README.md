@@ -200,6 +200,10 @@ The response shapes and some behavior come from Datadog's API documentation. The
 - incident `state`/`severity` attribute placement, SLO history `error_budget_remaining`, and synthetic result shapes
 - scope names behind `doctor`'s write-capability check, rate-limit header names, and permissions for POST-based reads
 
+## Releasing
+
+The release workflow stages each package version on npm. After the workflow runs, approve each staged version with 2FA by running `npm stage approve <id>` or using [npmjs.com](https://www.npmjs.com/). A staged version is not live on npm until you approve it.
+
 ## License
 
 [MIT](LICENSE)

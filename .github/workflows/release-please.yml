@@ -90,4 +90,4 @@ jobs:
             echo "already_published=true" >> "$GITHUB_OUTPUT"
           fi
       - if: ${{ steps.version.outputs.already_published != 'true' }}
-        run: npm publish ./datadog-axi-*.tgz --access public --provenance
+        run: npm stage publish ./datadog-axi-*.tgz --access public --provenance
