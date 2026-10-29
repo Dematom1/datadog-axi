@@ -96,4 +96,14 @@ jobs:
             echo "already_published=true" >> "$GITHUB_OUTPUT"
           fi
       - if: ${{ steps.version.outputs.already_published != 'true' }}
-        run: npm stage publish ./datadog-axi-*.tgz --access public --provenance
+        name: Stage package for approval
+        run: |
+          stage=$(npm stage publish ./datadog-axi-*.tgz --access public --provenance --json)
+          stage_id=$(printf '%s' "$stage" | node -p "const s=JSON.parse(require('fs').readFileSync(0, 'utf8')); s.id ?? s.stageId ?? 'unavailable'")
+          version=$(tar -xOzf datadog-axi-*.tgz package/package.json | node -p "JSON.parse(require('fs').readFileSync(0, 'utf8')).version")
+          {
+            echo "Stage id: $stage_id"
+            echo "Package: datadog-axi"
+            echo "Version: $version"
+            echo "Waiting for approval: run axi-approve"
+          } >> "$GITHUB_STEP_SUMMARY"
