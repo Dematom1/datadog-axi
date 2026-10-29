@@ -34,7 +34,9 @@ interface AppKey {
 export async function writeCapability(seam: Seam): Promise<string> {
   const auth = seam.target.auth;
   if (auth.kind === "bearer") {
-    return "unknown - bearer tokens carry their own scopes; check them where the token was issued";
+    return seam.target.scopes !== undefined
+      ? classifyScopes(seam.target.scopes, "the token")
+      : "unknown - bearer tokens carry their own scopes; check them where the token was issued";
   }
   try {
     const { data } = await seam.call<{ data?: AppKey[] }>("auth.current_user_app_keys", {
@@ -46,22 +48,25 @@ export async function writeCapability(seam: Seam): Promise<string> {
     if (!key) {
       return "unknown - the application key is not one of this user's keys (it may belong to a service account)";
     }
-    const scopes = key.attributes?.scopes;
-    if (!scopes || scopes.length === 0) {
-      return "likely yes - the application key is unscoped, so it has every permission of its user";
-    }
-    const writes = scopes.filter((s) => WRITE_SCOPE.test(s));
-    if (writes.length > 0) {
-      return `yes - write scopes: ${writes.join(", ")}`;
-    }
-    const unknown = scopes.filter((s) => !READ_SCOPE.test(s));
-    return unknown.length > 0
-      ? `unknown - unrecognized scopes: ${unknown.join(", ")}`
-      : `no - every scope is read-only (${scopes.join(", ")})`;
+    return classifyScopes(key.attributes?.scopes ?? [], "the application key");
   } catch (error) {
     const code = error instanceof AxiError ? error.code : "UNKNOWN";
     return `unknown - could not list the user's application keys (${code})`;
   }
+}
+
+function classifyScopes(scopes: readonly string[], what: string): string {
+  if (scopes.length === 0) {
+    return `likely yes - ${what} is unscoped, so it has every permission of its user`;
+  }
+  const writes = scopes.filter((s) => WRITE_SCOPE.test(s));
+  if (writes.length > 0) {
+    return `yes - write scopes: ${writes.join(", ")}`;
+  }
+  const unknown = scopes.filter((s) => !READ_SCOPE.test(s));
+  return unknown.length > 0
+    ? `unknown - unrecognized scopes: ${unknown.join(", ")}`
+    : `no - every scope is read-only (${scopes.join(", ")})`;
 }
 
 export async function doctorCommand(args: string[], rt: Runtime): Promise<Record<string, unknown>> {

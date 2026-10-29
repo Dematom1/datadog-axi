@@ -35,7 +35,10 @@ export function ctxBlock(
   const target = describeTarget(input, env, config);
   const block: Record<string, unknown> = {
     org: target.org,
-    site: `${target.site} (${regionOf(target.site)})`,
+    site:
+      target.site !== ""
+        ? `${target.site} (${regionOf(target.site)})`
+        : "from pup's login (run `datadog-axi auth status`)",
     credentials: target.credentials,
     writes: WRITES_STATUS,
   };

@@ -43,14 +43,15 @@ If datadog-axi output shows a follow-up command starting with \`datadog-axi\`, r
 ## Credentials
 
 datadog-axi reads credentials from the environment first: \`DD_API_KEY\` plus \`DD_APP_KEY\` (or \`DD_APPLICATION_KEY\`), or a \`DD_ACCESS_TOKEN\` bearer, with \`DD_SITE\` naming the Datadog site (default \`datadoghq.com\`).
-Without them it uses an org stored in the OS keychain by a human:
+Without them it uses an org stored in the OS keychain, and with nothing else configured it uses the browser login of Pup, Datadog's CLI, when \`pup\` is on PATH (a human runs \`pup auth login\` once; datadog-axi runs \`pup auth token\` itself).
+A human stores an org with:
 
 \`\`\`sh
 printf '%s\\n%s\\n' "$DD_API_KEY" "$DD_APP_KEY" | npx -y datadog-axi auth login --org <name> --site <site> --api-key-stdin
 \`\`\`
 
 Never put keys in command arguments, and never ask the user to paste a key into the conversation.
-If a command returns \`AUTH_REQUIRED\`, run \`npx -y datadog-axi auth guide --site <site>\` and show the user its steps: the links to create the keys on their site, the scopes to select, and the login command they run themselves.
+If a command returns \`AUTH_REQUIRED\`, show the user its help lines (for an expired pup login, \`pup auth refresh\`), or run \`npx -y datadog-axi auth guide --site <site>\` and show the user its steps: the pup login first, keys as the fallback. The user runs the login commands themselves.
 Each stored org is pinned to its site; \`WRONG_SITE\` means \`--site\` disagrees with the org's site.
 
 ## When to use

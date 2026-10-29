@@ -43,17 +43,23 @@ npm install -g datadog-axi    # or run on demand: npx -y datadog-axi
 
 ## Credentials
 
-Credentials are resolved in this order. A secret is never accepted as a flag, never echoed, and never read from another tool's config.
+Credentials are resolved in this order. A secret is never accepted as a flag, never echoed, and never read from another tool's files: pup's token comes only from pup itself.
 
 1. `--org <name>`: an org stored in the OS keychain, using the site that org is pinned to.
 2. Environment: `DD_ACCESS_TOKEN` (sent as a bearer), or `DD_API_KEY` plus `DD_APP_KEY` (or `DD_APPLICATION_KEY`). The site comes from `--site`, then `DD_SITE`, then `datadoghq.com`. This shows as org `env`.
 3. The current stored org.
+4. [Pup](https://docs.datadoghq.com/cli/), Datadog's CLI, when it is on `PATH` and nothing above is configured. datadog-axi runs `pup auth token` for the current token of pup's browser login, which also refreshes it, and `pup auth status` for its site, session and scopes. The token stays in memory: it is never written to disk, passed in argv or printed. Pup's own variables apply (`DD_SITE`, and `DD_ORG` for a named session), and `--site` is passed to pup as `DD_SITE`. `DATADOG_AXI_PUP=<path>` names the binary, and `DATADOG_AXI_PUP=off` turns this source off. This shows as org `pup`.
 
-### Creating the keys
+`auth status` and `doctor` show which source is in use. For pup they also show the session and expiry, and `doctor` judges write capability from the token's scopes.
 
-`datadog-axi auth guide --site <site> --org <name>` prints, for that site, the links to create an API key and an application key, the scopes to select for each command, the login command, and the checks to run afterwards. It runs offline and never reads the keychain. The home view prints the same guide when no credentials are configured, and `AUTH_REQUIRED` errors point to it. Without `--site` it uses `DD_SITE`, then US1.
+### Setting up
 
-Give the application key only the read scopes datadog-axi needs:
+`datadog-axi auth guide --site <site> --org <name>` prints the setup steps for that site. It runs offline and never reads the keychain or runs pup. The home view prints the same guide when no credentials are configured, and `AUTH_REQUIRED` errors point to it. Without `--site` it uses `DD_SITE`, then US1.
+
+- **Route A (recommended): pup.** Install it (`brew tap datadog-labs/pack && brew install datadog-labs/pack/pup`, or `npm install -g @datadog/pup`), then log in once in the browser with only the scopes below, for example `pup auth login --site datadoghq.eu --scopes monitors_read,logs_read_data,...`. There is nothing to copy: datadog-axi reads pup's token when it needs it. Pup's access token lasts about an hour and pup refreshes it for 30 days. After that, run `pup auth login` again (`pup auth refresh` forces a refresh). If the token has expired and could not be refreshed, datadog-axi says so and names the command to run.
+- **Route B (fallback): an API key and application key** in the OS keychain, which do not expire. The guide links to the key pages on your site and prints the `auth login` command below.
+
+Select only the read scopes datadog-axi needs, for the pup login or the application key:
 
 | Domain                        | Scopes                                   |
 | ----------------------------- | ---------------------------------------- |
@@ -73,7 +79,7 @@ Give the application key only the read scopes datadog-axi needs:
 
 Datadog's downtime list requires `monitors_downtime` (Manage Downtimes), which can also mute monitors. So it is not read-only, and `doctor` reports a key that has it as able to write. Leave it out unless you need `downtimes list`. When a domain is denied, `auth status` and `doctor` name the scopes that would allow it.
 
-Instead of an API key and application key, you can create a [Personal Access Token](https://docs.datadoghq.com/account_management/personal-access-tokens.md) with the same scopes and set it as `DD_ACCESS_TOKEN`. A PAT is a single scoped credential with an expiry. Datadog has no API that creates a first credential without an existing one, and its OAuth clients require partner registration, so datadog-axi has no browser login.
+Instead of an API key and application key, you can create a [Personal Access Token](https://docs.datadoghq.com/account_management/personal-access-tokens.md) with the same scopes and set it as `DD_ACCESS_TOKEN`. A PAT is a single scoped credential with an expiry. datadog-axi has no browser login of its own: Datadog's OAuth clients for third parties need partner registration, so the browser login is pup's.
 
 ### Storing an org
 

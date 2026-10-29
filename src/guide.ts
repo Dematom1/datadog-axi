@@ -1,11 +1,13 @@
+import { pupLoginCommand } from "./pup.js";
 import { appBaseUrl, DEFAULT_SITE, normalizeSite, regionOf } from "./sites.js";
 
 /**
- * The credential setup guide: where on the org's own site a human creates
- * the keys, which scopes datadog-axi needs, and how to store and check them.
- * Fully offline: no keychain, no network. Datadog has no API that creates a
- * first credential without an existing one, and its OAuth clients need
- * partner registration, so a guide is the setup path.
+ * The credential setup guide: which scopes datadog-axi needs and two ways
+ * for a human to get a credential with them on the org's own site. Route A,
+ * the default, is a browser login with Pup, Datadog's CLI; datadog-axi then
+ * reads pup's token itself (`pup.ts`). Route B, the fallback, is an API key
+ * and a scoped application key stored with `auth login`. Printing the guide
+ * is fully offline: no keychain, no network, no pup.
  *
  * Scopes are the permission each endpoint's Datadog API reference names
  * ("This endpoint requires the `X` permission"); application keys can be
@@ -69,6 +71,8 @@ export function accessTokensUrl(site: string): string {
   return `${appBaseUrl(site)}/personal-settings/access-tokens`;
 }
 
+export const PUP_DOCS_URL = "https://docs.datadoghq.com/cli/";
+
 export function guideCommand(site: string, org?: string): string {
   return `datadog-axi auth guide --site ${site}${org !== undefined ? ` --org ${org}` : ""}`;
 }
@@ -80,8 +84,13 @@ export interface SetupGuide {
   steps: string[];
 }
 
+/** Every read-only scope datadog-axi uses, in table order. */
+export const READ_SCOPES: readonly string[] = DOMAIN_SCOPES.filter((d) => d.caveat === undefined).flatMap(
+  (d) => d.scopes,
+);
+
 export function setupGuide(site: string, org = "<name>"): SetupGuide {
-  const readOnly = DOMAIN_SCOPES.filter((d) => d.caveat === undefined).flatMap((d) => d.scopes);
+  const readOnly = READ_SCOPES;
   return {
     data: {
       site: `${site} (${regionOf(site)})`,
@@ -89,6 +98,7 @@ export function setupGuide(site: string, org = "<name>"): SetupGuide {
         api_keys: apiKeysUrl(site),
         application_keys: applicationKeysUrl(site),
         personal_access_tokens: accessTokensUrl(site),
+        pup_cli: PUP_DOCS_URL,
       },
       read_scopes: readOnly.join(" "),
       scopes: DOMAIN_SCOPES.map(({ domain, scopes, caveat }) => ({
@@ -98,12 +108,20 @@ export function setupGuide(site: string, org = "<name>"): SetupGuide {
       })),
     },
     steps: [
-      `1. Open ${apiKeysUrl(site)} and copy an existing API key, or create one with New Key`,
-      `2. Open ${applicationKeysUrl(site)}, create a key with New Key and limit its scopes to read_scopes above`,
-      `3. Store both in the OS keychain; keys go on stdin, never in arguments: printf '%s\\n%s\\n' "$DD_API_KEY" "$DD_APP_KEY" | datadog-axi auth login --org ${org} --site ${site} --api-key-stdin`,
-      `4. Wait a few seconds for the new key to propagate, then run \`datadog-axi auth status --org ${org}\` to see which domains it can read`,
-      `5. Run \`datadog-axi doctor --org ${org}\` to check rate-limit headroom and whether the key could write`,
-      `Instead of steps 1-3: create a Personal Access Token (one scoped credential with an expiry) at ${accessTokensUrl(site)} with read_scopes, then set DD_ACCESS_TOKEN and DD_SITE=${site}`,
+      "Route A (recommended) - Pup, Datadog's CLI: one browser login and no long-lived key",
+      "A1. Install Pup: brew tap datadog-labs/pack && brew install datadog-labs/pack/pup (or npm install -g @datadog/pup)",
+      `A2. Log in once in the browser with only read_scopes: ${pupLoginCommand(site, readOnly)}`,
+      `A3. Nothing to copy: with no other credential set, datadog-axi runs \`pup auth token\` itself and keeps the token in memory only${
+        site === DEFAULT_SITE ? "" : `. Export DD_SITE=${site} so pup and datadog-axi pick this login`
+      }; for a named pup session (pup auth login --org <name>), export DD_ORG=<name>`,
+      "A4. Run `datadog-axi auth status` and `datadog-axi doctor`. Pup's token lasts about an hour and pup refreshes it for 30 days; after that, run A2 again (`pup auth refresh` forces a refresh)",
+      "Route B (fallback) - an API key and application key in the OS keychain; they do not expire",
+      `B1. Open ${apiKeysUrl(site)} and copy an existing API key, or create one with New Key`,
+      `B2. Open ${applicationKeysUrl(site)}, create a key with New Key and limit its scopes to read_scopes above`,
+      `B3. Store both in the OS keychain; keys go on stdin, never in arguments: printf '%s\\n%s\\n' "$DD_API_KEY" "$DD_APP_KEY" | datadog-axi auth login --org ${org} --site ${site} --api-key-stdin`,
+      `B4. Wait a few seconds for the new key to propagate, then run \`datadog-axi auth status --org ${org}\` to see which domains it can read`,
+      `B5. Run \`datadog-axi doctor --org ${org}\` to check rate-limit headroom and whether the key could write`,
+      `Instead of B1-B3: create a Personal Access Token (one scoped credential with an expiry) at ${accessTokensUrl(site)} with read_scopes, then set DD_ACCESS_TOKEN and DD_SITE=${site}`,
     ],
   };
 }

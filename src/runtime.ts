@@ -2,13 +2,15 @@ import { AxiError } from "axi-sdk-js";
 import { str, type ParsedArgs } from "./args.js";
 import { configPath, loadConfig, type Config } from "./config.js";
 import { osKeychain, type Keychain } from "./keychain.js";
+import type { PupRunner } from "./pup.js";
 import { createRegistry, type Registry } from "./registry.js";
 import { resolveBaseUrl, Seam, type FetchLike } from "./seam.js";
 import { resolveTarget } from "./target.js";
 
 /**
  * Everything a command needs from the outside world, injected so tests run
- * against fakes: environment, clock, config path, keychain, HTTP and stdin.
+ * against fakes: environment, clock, config path, keychain, HTTP, stdin and
+ * the pup process.
  */
 export interface Runtime {
   env: NodeJS.ProcessEnv;
@@ -19,6 +21,7 @@ export interface Runtime {
   sleep?: (ms: number) => Promise<void>;
   readStdin: () => Promise<{ isTTY: boolean; text: string }>;
   registry?: Registry;
+  pup?: PupRunner;
 }
 
 export function defaultRuntime(): Runtime {
@@ -54,6 +57,7 @@ export async function connect(rt: Runtime, parsed: ParsedArgs): Promise<Seam> {
     rt.env,
     config,
     rt.keychain,
+    rt.pup,
   );
   return new Seam({
     target,

@@ -5,13 +5,15 @@ import { fileURLToPath } from "node:url";
 import { main } from "../src/cli.js";
 import type { Config } from "../src/config.js";
 import { memoryKeychain, type Keychain, type StoredKeys } from "../src/keychain.js";
+import type { PupRunner } from "../src/pup.js";
 import type { Runtime } from "../src/runtime.js";
 import type { FetchLike } from "../src/seam.js";
 
 /**
- * Test plumbing. Nothing here reaches a real Datadog endpoint, keychain or
- * credential: HTTP goes to an in-process fake, the keychain is in memory,
- * the environment is built from scratch, and config lives in a temp dir.
+ * Test plumbing. Nothing here reaches a real Datadog endpoint, keychain,
+ * credential or pup: HTTP goes to an in-process fake, the keychain is in
+ * memory, pup is a scripted fake, the environment is built from scratch, and
+ * config lives in a temp dir.
  */
 
 export const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), "fixtures");
@@ -91,7 +93,42 @@ export interface RuntimeOptions {
   keychain?: Keychain;
   fetch?: FetchLike;
   stdin?: { isTTY: boolean; text: string };
+  pup?: PupRunner;
 }
+
+export interface PupCall {
+  args: string[];
+  env: NodeJS.ProcessEnv;
+}
+
+/**
+ * A scripted pup: `auth token` and `auth status` answer from `replies`
+ * (a string is stdout, an Error is a failure). Calls are recorded.
+ */
+export function fakePup(replies: { token?: string | Error; status?: unknown }): PupRunner & { calls: PupCall[] } {
+  const calls: PupCall[] = [];
+  return {
+    calls,
+    async run(_bin, args, env) {
+      calls.push({ args, env });
+      const reply = args.join(" ") === "auth token" ? replies.token : replies.status;
+      if (reply instanceof Error) {
+        throw reply;
+      }
+      if (reply === undefined) {
+        throw new Error(`fake pup has no reply for ${args.join(" ")}`);
+      }
+      return typeof reply === "string" ? reply : JSON.stringify(reply);
+    },
+  };
+}
+
+/** A pup that fails the test if datadog-axi ever runs it. */
+const forbiddenPup: PupRunner = {
+  run: async () => {
+    throw new Error("pup must not run in this test");
+  },
+};
 
 export function makeRuntime(options: RuntimeOptions = {}): Runtime & { configPath: string } {
   const dir = mkdtempSync(join(tmpdir(), "datadog-axi-test-"));
@@ -108,6 +145,7 @@ export function makeRuntime(options: RuntimeOptions = {}): Runtime & { configPat
     fetch: options.fetch ?? fakeFetch({}),
     sleep: async () => {},
     readStdin: async () => options.stdin ?? { isTTY: true, text: "" },
+    pup: options.pup ?? forbiddenPup,
   };
 }
 

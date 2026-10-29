@@ -58,6 +58,7 @@ export const AUTH_HELP = renderHelp({
   ],
   notes: [
     "Environment credentials win when no --org is given: DD_ACCESS_TOKEN, or DD_API_KEY + DD_APP_KEY (or DD_APPLICATION_KEY), with DD_SITE",
+    "With nothing else configured, pup's browser login is used when pup is on PATH (DATADOG_AXI_PUP=off disables it)",
     "Keys are never accepted as flags; login reads them from stdin and refuses a terminal",
   ],
   examples: [
@@ -224,7 +225,7 @@ async function list(args: string[], rt: Runtime): Promise<Record<string, unknown
     site: entry.site,
     current: config.current === name,
   }));
-  const env = active.source === "env" ? active.credentials : "none";
+  const env = active.source === "env" || active.source === "pup" ? active.credentials : "none";
   if (orgs.length === 0) {
     return withHelp({ orgs: "0 stored", environment: env, active: active.org }, [
       "Run `datadog-axi auth guide --site <site>` for how to create the keys",
@@ -234,6 +235,7 @@ async function list(args: string[], rt: Runtime): Promise<Record<string, unknown
   return withHelp({ orgs, environment: env, active: active.org }, [
     "Select a stored org per command with `--org <name>`",
     ...(active.source === "env" ? ["Environment credentials are active because no `--org` was given"] : []),
+    ...(active.source === "pup" ? ["pup's login is active because no other credential is configured"] : []),
   ]);
 }
 

@@ -116,8 +116,8 @@ describe("target resolution", () => {
       const { code, suggestions } = error as AxiError;
       expect(code).toBe("AUTH_REQUIRED");
       expect(suggestions.join("\n")).toContain("https://app.datadoghq.eu/organization-settings/application-keys");
-      expect(suggestions).toContain(
-        "Run `datadog-axi auth guide --site datadoghq.eu` for the scopes to select and the steps after",
+      expect(suggestions.join("\n")).toContain(
+        "Run `datadog-axi auth guide --site datadoghq.eu` for both setup routes",
       );
     }
   });

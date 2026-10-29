@@ -294,14 +294,14 @@ export class Seam {
     const { org, site } = this.options.target;
     return new AxiError(`Could not reach Datadog site ${site}: ${reason}`, "SERVER_UNREACHABLE", [
       "Check network access, then retry",
-      `Run \`datadog-axi doctor${org !== "env" ? ` --org ${org}` : ""}\` to check site reachability`,
+      `Run \`datadog-axi doctor${this.options.target.source === "keychain" ? ` --org ${org}` : ""}\` to check site reachability`,
     ]);
   }
 
   private translate(status: number, body: string): AxiError {
     const { org, site } = this.options.target;
     const detail = extractErrorDetail(body);
-    const orgFlag = org !== "env" ? ` --org ${org}` : "";
+    const orgFlag = this.options.target.source === "keychain" ? ` --org ${org}` : "";
 
     if (status === 400 || status === 422) {
       return new AxiError(`Datadog rejected the request${detail ? `: ${detail}` : ""}`, "VALIDATION_ERROR", [
@@ -310,6 +310,11 @@ export class Seam {
     }
     if (status === 401) {
       return new AxiError(`Datadog rejected the credentials for org ${org} on site ${site}`, "AUTH_REQUIRED", [
+        ...(this.options.target.source === "pup"
+          ? ["pup's token was rejected: a human runs `pup auth refresh`, or `pup auth login` if that fails"]
+          : this.options.target.auth.kind === "bearer"
+            ? ["DD_ACCESS_TOKEN may have expired; personal access tokens and pup tokens have an expiry"]
+            : []),
         "Keys belong to one site: if they were issued on another site, pass `--site <site>` (env credentials) or store the org with its own site",
         `Run \`datadog-axi auth status${orgFlag}\` to check the keys`,
       ]);

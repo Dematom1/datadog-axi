@@ -59,7 +59,11 @@ export async function homeCommand(rt: Runtime): Promise<Record<string, unknown>>
     return {
       ctx,
       live: `unavailable - ${reason(error)}`,
-      help: ["Run `datadog-axi auth status` to check the credentials", "Run `datadog-axi --help` for commands"],
+      help: [
+        ...(error instanceof AxiError ? error.suggestions : []),
+        "Run `datadog-axi auth status` to check the credentials",
+        "Run `datadog-axi --help` for commands",
+      ],
     };
   }
 
