@@ -225,14 +225,15 @@ async function list(args: string[], rt: Runtime): Promise<Record<string, unknown
     site: entry.site,
     current: config.current === name,
   }));
-  const env = active.source === "env" || active.source === "pup" ? active.credentials : "none";
+  const env = active.source === "env" ? active.credentials : "none";
+  const pup = active.source === "pup" ? { pup: active.credentials } : {};
   if (orgs.length === 0) {
-    return withHelp({ orgs: "0 stored", environment: env, active: active.org }, [
+    return withHelp({ orgs: "0 stored", environment: env, ...pup, active: active.org }, [
       "Run `datadog-axi auth guide --site <site>` for how to create the keys",
       'A human stores an org with: printf \'%s\\n%s\\n\' "$DD_API_KEY" "$DD_APP_KEY" | datadog-axi auth login --org <name> --site <site> --api-key-stdin',
     ]);
   }
-  return withHelp({ orgs, environment: env, active: active.org }, [
+  return withHelp({ orgs, environment: env, ...pup, active: active.org }, [
     "Select a stored org per command with `--org <name>`",
     ...(active.source === "env" ? ["Environment credentials are active because no `--org` was given"] : []),
     ...(active.source === "pup" ? ["pup's login is active because no other credential is configured"] : []),

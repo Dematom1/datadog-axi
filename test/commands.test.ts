@@ -608,6 +608,16 @@ describe("pup credential source", () => {
     expect(doctor.stdout).not.toContain(TOKEN);
   });
 
+  it("lists pup's login under its own key, not as environment credentials", async () => {
+    const pup = fakePup({ token: TOKEN, status: STATUS });
+    const { stdout, exitCode } = await run(["auth", "list"], makeRuntime({ env: PUP, pup }));
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("environment: none");
+    expect(stdout).toMatch(/^pup: .*pup auth token/m);
+    expect(stdout).toContain("active: pup");
+    expect(stdout).not.toContain(TOKEN);
+  });
+
   it("passes --site to pup as DD_SITE and refuses a login for another site", async () => {
     const pup = fakePup({ token: TOKEN, status: STATUS });
     const { stdout, exitCode } = await run(["monitors", "--site", "US5"], makeRuntime({ env: PUP, pup }));
