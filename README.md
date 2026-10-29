@@ -49,6 +49,34 @@ Credentials are resolved in this order. A secret is never accepted as a flag, ne
 2. Environment: `DD_ACCESS_TOKEN` (sent as a bearer), or `DD_API_KEY` plus `DD_APP_KEY` (or `DD_APPLICATION_KEY`). The site comes from `--site`, then `DD_SITE`, then `datadoghq.com`. This shows as org `env`.
 3. The current stored org.
 
+### Creating the keys
+
+`datadog-axi auth guide --site <site> --org <name>` prints, for that site, the links to create an API key and an application key, the scopes to select for each command, the login command, and the checks to run afterwards. It runs offline and never reads the keychain. The home view prints the same guide when no credentials are configured, and `AUTH_REQUIRED` errors point to it. Without `--site` it uses `DD_SITE`, then US1.
+
+Give the application key only the read scopes datadog-axi needs:
+
+| Domain                        | Scopes                                   |
+| ----------------------------- | ---------------------------------------- |
+| monitors (and the home view)  | `monitors_read`                          |
+| logs                          | `logs_read_data`, `logs_read_index_data` |
+| metrics                       | `metrics_read`, `timeseries_query`       |
+| traces                        | `apm_read`                               |
+| services                      | `apm_service_catalog_read`               |
+| dashboards                    | `dashboards_read`                        |
+| incidents (and the home view) | `incident_read`                          |
+| events                        | `events_read`                            |
+| hosts                         | `hosts_read`                             |
+| slos                          | `slos_read`                              |
+| synthetics                    | `synthetics_read`                        |
+| notebooks                     | `notebooks_read`                         |
+| downtimes (optional)          | `monitors_downtime`                      |
+
+Datadog's downtime list requires `monitors_downtime` (Manage Downtimes), which can also mute monitors. So it is not read-only, and `doctor` reports a key that has it as able to write. Leave it out unless you need `downtimes list`. When a domain is denied, `auth status` and `doctor` name the scopes that would allow it.
+
+Instead of an API key and application key, you can create a [Personal Access Token](https://docs.datadoghq.com/account_management/personal-access-tokens.md) with the same scopes and set it as `DD_ACCESS_TOKEN`. A PAT is a single scoped credential with an expiry. Datadog has no API that creates a first credential without an existing one, and its OAuth clients require partner registration, so datadog-axi has no browser login.
+
+### Storing an org
+
 To store an org, a human pipes both keys on stdin, API key first and application key second. A terminal on stdin is refused.
 
 ```sh
@@ -82,7 +110,7 @@ Each Datadog site is fully independent, so the same query on the wrong site just
 | `synthetics list`, `view <id>`, `results <id>`                | Tests and their latest results (never triggers a run)                                                               |
 | `notebooks list`, `view <id>`                                 | Notebooks, cell by cell                                                                                             |
 | `api [GET\|POST] <path>`                                      | Allowlisted read-only endpoints with no dedicated command                                                           |
-| `auth login\|status\|list\|logout`                            | Credential management                                                                                               |
+| `auth guide\|login\|status\|list\|logout`                     | Key setup guide and credential management                                                                           |
 | `doctor`                                                      | Key validity, site reachability, readable domains, rate-limit headroom, whether the key could write                 |
 | `ctx`                                                         | Offline org, site and credential source                                                                             |
 | `setup hooks [--project]`                                     | Agent session hooks                                                                                                 |

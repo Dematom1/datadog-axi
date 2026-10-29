@@ -49,7 +49,8 @@ Without them it uses an org stored in the OS keychain by a human:
 printf '%s\\n%s\\n' "$DD_API_KEY" "$DD_APP_KEY" | npx -y datadog-axi auth login --org <name> --site <site> --api-key-stdin
 \`\`\`
 
-Never put keys in command arguments. If a command returns \`AUTH_REQUIRED\`, ask the user to set the environment variables or run the login above themselves.
+Never put keys in command arguments, and never ask the user to paste a key into the conversation.
+If a command returns \`AUTH_REQUIRED\`, run \`npx -y datadog-axi auth guide --site <site>\` and show the user its steps: the links to create the keys on their site, the scopes to select, and the login command they run themselves.
 Each stored org is pinned to its site; \`WRONG_SITE\` means \`--site\` disagrees with the org's site.
 
 ## When to use

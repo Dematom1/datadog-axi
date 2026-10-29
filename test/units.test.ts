@@ -1,7 +1,12 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { AxiError } from "axi-sdk-js";
 import { describe, expect, it } from "vitest";
 import { intFlag, list, parseArgs, type CommandSpec } from "../src/args.js";
 import { buildMonitorQuery } from "../src/commands/monitors.js";
+import { DOMAIN_SCOPES } from "../src/guide.js";
+import { READ_OPERATIONS } from "../src/registry.js";
 import { REDACTED, redact } from "../src/redact.js";
 import { oneLine, rebuildCommand, truncate } from "../src/render.js";
 import { normalizeSite } from "../src/sites.js";
@@ -146,6 +151,21 @@ describe("sites", () => {
 
   it("refuses unknown hosts so keys never go elsewhere", () => {
     expect(codeOf(() => normalizeSite("evil.example.com"))).toBe("VALIDATION_ERROR");
+  });
+});
+
+describe("setup guide scopes", () => {
+  it("names scopes for every domain a registered read belongs to", () => {
+    const covered = new Set(DOMAIN_SCOPES.map((d) => d.domain));
+    const domains = new Set(READ_OPERATIONS.map((op) => op.domain).filter((d) => d !== "auth"));
+    expect([...domains].filter((d) => !covered.has(d))).toEqual([]);
+    expect([...covered].filter((d) => !domains.has(d))).toEqual([]);
+  });
+
+  it("are all listed in the README", () => {
+    const readme = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "README.md"), "utf-8");
+    const missing = DOMAIN_SCOPES.flatMap((d) => d.scopes).filter((s) => !readme.includes(`\`${s}\``));
+    expect(missing).toEqual([]);
   });
 });
 

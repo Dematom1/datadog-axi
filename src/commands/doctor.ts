@@ -1,5 +1,6 @@
 import { AxiError } from "axi-sdk-js";
 import { parseArgs, TARGET_FLAGS, type CommandSpec } from "../args.js";
+import { deniedScopes, guideCommand } from "../guide.js";
 import { renderHelp } from "../help.js";
 import { PROBE_TIMEOUT_MS, probeDomains, validateKeys } from "../probe.js";
 import { withHelp } from "../render.js";
@@ -101,7 +102,13 @@ export async function doctorCommand(args: string[], rt: Runtime): Promise<Record
       ...(keys.site_reachable === "no"
         ? ["Check network access to the site; a wrong site also looks like no data"]
         : []),
-      ...(denied.length > 0 ? [`Denied: ${denied.join(", ")}; the key's scopes or user role do not cover them`] : []),
+      ...(denied.length > 0
+        ? [
+            `Denied: ${denied.join(", ")}; the key's scopes or user role do not cover them`,
+            `Scopes that would allow them: ${deniedScopes(denied)}`,
+            `Run \`${guideCommand(seam.target.site)}\` for where to edit the key's scopes`,
+          ]
+        : []),
       ...(errored.length > 0 ? [`Errored probes: ${errored.join(", ")}; re-run doctor to see if they persist`] : []),
     ],
   );

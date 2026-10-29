@@ -1,5 +1,6 @@
 import { AxiError } from "axi-sdk-js";
 import { findOrg, type Config } from "./config.js";
+import { apiKeysUrl, applicationKeysUrl, guideCommand } from "./guide.js";
 import type { Keychain } from "./keychain.js";
 import { DEFAULT_SITE, normalizeSite } from "./sites.js";
 
@@ -13,6 +14,8 @@ import { DEFAULT_SITE, normalizeSite } from "./sites.js";
  *    `DD_APP_KEY` / `DD_APPLICATION_KEY`; site from `--site`, else `DD_SITE`,
  *    else US1. Reported as org `env`.
  * 3. The config's current org and its keychain entry.
+ * 4. None: site from `--site`, else `DD_SITE`, else US1, so setup guidance
+ *    points at the right site.
  *
  * A stored org pins its site: `--site` naming a different site is
  * `WRONG_SITE`, so a key is never sent to the wrong site by accident.
@@ -108,9 +111,11 @@ export function describeTarget(input: TargetInput, env: NodeJS.ProcessEnv, confi
     }
   }
 
+  // No credentials yet: DD_SITE still names the site, so setup links point at it.
+  const envSite = nonEmpty(env.DD_SITE);
   return {
     org: "none",
-    site: flagSite ?? DEFAULT_SITE,
+    site: flagSite ?? (envSite !== undefined ? normalizeSite(envSite) : DEFAULT_SITE),
     source: "none",
     credentials: "none configured",
     explicit: false,
@@ -127,8 +132,11 @@ export async function resolveTarget(
   const description = describeTarget(input, env, config);
 
   if (description.source === "none") {
+    const site = description.site;
     throw new AxiError("No Datadog credentials configured", "AUTH_REQUIRED", [
-      "Set DD_API_KEY and DD_APP_KEY (and DD_SITE) in the environment, or store an org:",
+      `A human creates an API key at ${apiKeysUrl(site)} and a read-scoped application key at ${applicationKeysUrl(site)} (site ${site}; pass \`--site\` for another)`,
+      `Run \`${guideCommand(site)}\` for the scopes to select and the steps after`,
+      "Then set DD_API_KEY and DD_APP_KEY (and DD_SITE) in the environment, or store an org:",
       LOGIN_HINT,
     ]);
   }
@@ -160,6 +168,7 @@ export async function resolveTarget(
   if (!keys) {
     throw new AxiError(`Org "${description.org}" has no keys in the keychain`, "AUTH_REQUIRED", [
       LOGIN_HINT.replace("<name>", description.org).replace("<site>", description.site),
+      `Run \`${guideCommand(description.site, description.org)}\` for how to create the keys`,
     ]);
   }
   return { ...description, auth: { kind: "keys", apiKey: keys.apiKey, appKey: keys.appKey } };

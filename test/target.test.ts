@@ -99,6 +99,28 @@ describe("target resolution", () => {
     });
     expect(describeTarget({}, {}, emptyConfig())).toMatchObject({ org: "none", source: "none" });
   });
+
+  it("uses DD_SITE for the site even without credentials, so setup links point at it", async () => {
+    expect(describeTarget({}, { DD_SITE: "EU1" }, emptyConfig())).toMatchObject({
+      org: "none",
+      site: "datadoghq.eu",
+    });
+    expect(describeTarget({ site: "us5.datadoghq.com" }, { DD_SITE: "EU1" }, emptyConfig()).site).toBe(
+      "us5.datadoghq.com",
+    );
+    try {
+      await resolveTarget({}, { DD_SITE: "datadoghq.eu" }, emptyConfig(), forbiddenKeychain);
+      expect.unreachable();
+    } catch (error) {
+      expect(error).toBeInstanceOf(AxiError);
+      const { code, suggestions } = error as AxiError;
+      expect(code).toBe("AUTH_REQUIRED");
+      expect(suggestions.join("\n")).toContain("https://app.datadoghq.eu/organization-settings/application-keys");
+      expect(suggestions).toContain(
+        "Run `datadog-axi auth guide --site datadoghq.eu` for the scopes to select and the steps after",
+      );
+    }
+  });
 });
 
 describe("config file", () => {

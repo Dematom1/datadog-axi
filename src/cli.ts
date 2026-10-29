@@ -44,7 +44,7 @@ summary[19]:
   synthetics: List synthetic tests; view one; latest results
   notebooks: List notebooks; read one cell by cell
   api: Call an allowlisted read-only API endpoint directly
-  auth: Store, check, list and remove credentials (OS keychain per org)
+  auth: Key setup guide; store, check, list and remove credentials (OS keychain per org)
   doctor: Keys, site reachability, readable domains, rate limits, write capability
   ctx: Offline org, site and credential source (what the session hook prints)
   setup: Install agent SessionStart hooks
