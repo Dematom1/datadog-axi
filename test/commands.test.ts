@@ -209,6 +209,20 @@ describe("metrics", () => {
     const { stdout } = await run(["metrics", "tags", "trace.hits"], makeRuntime({ env: EU, fetch }));
     expect(stdout).toContain("host,3,a b c");
     expect(stdout).toContain("env,2,prod staging");
+    expect(stdout).not.toContain("--full");
+  });
+
+  it("mentions --full for tags only when a sample was cut", async () => {
+    const hosts = Array.from({ length: 7 }, (_, i) => `host:h${i}`);
+    const fetch = fakeFetch({
+      "GET /api/v2/metrics/trace.hits/all-tags": { body: { data: { attributes: { tags: hosts } } } },
+    });
+    const cut = await run(["metrics", "tags", "trace.hits"], makeRuntime({ env: EU, fetch }));
+    expect(cut.stdout).toContain("host,7,h0 h1 h2 h3 h4 ...");
+    expect(cut.stdout).toContain("--full");
+    const full = await run(["metrics", "tags", "trace.hits", "--full"], makeRuntime({ env: EU, fetch }));
+    expect(full.stdout).toContain("h0 h1 h2 h3 h4 h5 h6");
+    expect(full.stdout).not.toContain("--full");
   });
 });
 

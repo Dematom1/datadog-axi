@@ -335,6 +335,6 @@ async function tags(args: string[], rt: Runtime): Promise<Record<string, unknown
     }));
   return withHelp(
     { site: seam.target.site, metric: name, tag_keys: rows.length, tags: rows, ...redactionNote(redacted) },
-    full ? [] : [`Add \`--full\` for every value`],
+    !full && rows.some((r) => r.values > 5) ? [`Add \`--full\` for every value`] : [],
   );
 }

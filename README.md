@@ -21,7 +21,7 @@ monitor_counts:
 alerting[3]{id,name,status,type}:
   102,Checkout error rate,Alert,query alert
   ...
-incidents: 1 active
+incidents: 1 open
 help[4]:
   Run `datadog-axi monitors --status alert` for every alerting monitor
   ...
