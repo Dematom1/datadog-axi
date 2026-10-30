@@ -226,7 +226,10 @@ function unexpectedArgumentHint(spec: CommandSpec, args: string[], positionals: 
 }
 
 function commandLine(spec: CommandSpec, args: string[]): string {
-  return `Run \`datadog-axi ${spec.name}${args.length ? ` ${args.join(" ")}` : ""}\``;
+  const rendered = args.map((arg) =>
+    /^[\w./:=,@%+-]+$/.test(arg) ? arg : `'${arg.replace(/'/g, "'\\''")}'`,
+  );
+  return `Run \`datadog-axi ${spec.name}${rendered.length ? ` ${rendered.join(" ")}` : ""}\``;
 }
 
 function editDistanceAtMostOne(a: string, b: string): boolean {

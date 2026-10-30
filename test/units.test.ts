@@ -107,6 +107,15 @@ describe("parseArgs", () => {
     }
   });
 
+  it("quotes spaced arguments in correction hints", () => {
+    try {
+      parseArgs(SPEC, ["service:web status:error", "--frm", "1h"]);
+      expect.unreachable();
+    } catch (error) {
+      expect((error as AxiError).suggestions.join(" ")).toContain("'service:web status:error' --from 1h");
+    }
+  });
+
   it("does not suggest a correction for an unrelated extra argument", () => {
     try {
       parseArgs(SPEC, ["q", "nonsense"]);
