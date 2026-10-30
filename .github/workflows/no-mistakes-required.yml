@@ -22,9 +22,7 @@ jobs:
   check:
     name: PR must be raised via no-mistakes
     runs-on: ubuntu-latest
-    # Known automation accounts are exempt so the release pipeline keeps working:
-    # - github-actions[bot] opens the release-please PR via GITHUB_TOKEN
-    # - dependabot[bot] opens dependency update PRs
+    # Known automation accounts and release-please Bot PRs are exempt.
     # Other authors (human or bot) must raise PRs through `git push no-mistakes`.
     #
     # These stay job-level rather than moving to the action's `exempt-authors`
@@ -33,7 +31,8 @@ jobs:
     if: >-
       github.event.pull_request.user.login != 'github-actions[bot]' &&
       github.event.pull_request.user.login != 'dependabot[bot]' &&
-      github.event.pull_request.user.login != 'release-please[bot]'
+      github.event.pull_request.user.login != 'release-please[bot]' &&
+      (github.event.pull_request.user.type != 'Bot' || !startsWith(github.event.pull_request.head.ref, 'release-please--'))
     steps:
       - name: Verify no-mistakes signature and pipeline attestation in PR body
         uses: kunchenguid/no-mistakes/.github/actions/require-no-mistakes@f6441c96c352a18b9cadcaef6b6c7017e9ac3970 # v1.80.1
