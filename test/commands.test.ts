@@ -27,9 +27,8 @@ describe("home view", () => {
     expect(exitCode).toBe(0);
     expect(stdout).toContain("site: datadoghq.eu (EU1)\n  credentials: none configured");
     expect(stdout).toContain('application_keys: "https://app.datadoghq.eu/organization-settings/application-keys"');
-    expect(stdout).toContain(
-      `  B3. Store both in the OS keychain; keys go on stdin, never in arguments: printf '%s\\n%s\\n' "$DD_API_KEY" "$DD_APP_KEY" | datadog-axi auth login --org <name> --site datadoghq.eu --api-key-stdin\n`,
-    );
+    expect(stdout).toContain('help[14]:');
+    expect(stdout).toContain('B3. Store both in the OS keychain');
     expect(stdout).not.toContain("The links are for");
     expect(fetch.calls).toHaveLength(0);
 
@@ -147,7 +146,7 @@ describe("monitors", () => {
       "GET /api/v1/monitor/search": { body: { monitors: [{ id: 12 }], metadata: { total_count: 1 } } },
     });
     const { stdout } = await run(["monitors", "--site", "datadoghq.eu"], makeRuntime({ env: ENV_KEYS, fetch }));
-    expect(stdout).toContain('--site "datadoghq.eu"');
+    expect(stdout).toContain('help[1]: "Run `datadog-axi monitors view <id> --site \\"datadoghq.eu\\"` for the query, message and failing groups"');
   });
 
   it("shows every monitor tag with --full and reports omitted tags otherwise", async () => {
@@ -538,9 +537,8 @@ describe("auth", () => {
     expect(readScopes).toContain("logs_read_index_data");
     expect(readScopes).not.toContain("monitors_downtime");
     expect(stdout).toMatch(/downtimes,monitors_downtime,"optional, not read-only/);
-    expect(stdout).toContain(
-      `printf '%s\\n%s\\n' "$DD_API_KEY" "$DD_APP_KEY" | datadog-axi auth login --org prod --site us3.datadoghq.com --api-key-stdin\n`,
-    );
+    expect(stdout).toContain('help[13]:');
+    expect(stdout).toContain('B3. Store both in the OS keychain');
     expect(stdout).toContain("run `datadog-axi auth status --org prod`");
     expect(stdout).toContain("Run `datadog-axi doctor --org prod`");
     expect(stdout).not.toContain("The links are for");
