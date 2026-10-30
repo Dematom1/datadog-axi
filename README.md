@@ -110,7 +110,7 @@ Each Datadog site is fully independent, so the same query on the wrong site just
 | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | `datadog-axi`                                                 | Live home view: org, site, monitor counts by status, up to 5 alerting or no-data monitors, open incidents           |
 | `monitors [search] [<query>]`                                 | Monitor search with `--status`, `--tag`, `--name`; problems first, with status counts and totals                    |
-| `monitors view <id>`                                          | Query, message, tags and the non-OK groups                                                                          |
+| `monitors view <id> [--full]`                                 | Query, message, tags and the non-OK groups; `--full` includes every tag                                             |
 | `logs search "<query>"`                                       | Events (time, service, status, message); `--from`, `--to`, `--index`, `--limit` (20, max 200), `--sort`, `--cursor` |
 | `logs aggregate "<query>" [--by <facet>]`                     | Counts, optionally grouped by `status`, `service`, `host` or `@attribute`                                           |
 | `logs view <id>`                                              | One event with its attributes                                                                                       |

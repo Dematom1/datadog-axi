@@ -114,7 +114,7 @@ const VIEW: CommandSpec = {
   name: "monitors view",
   positionals: ["<id>"],
   flags: {
-    "--full": { kind: "boolean", description: "Untruncated message and every non-OK group" },
+    "--full": { kind: "boolean", description: "Untruncated message, every non-OK group and every tag" },
     ...TARGET_FLAGS,
   },
 };
@@ -303,6 +303,7 @@ async function view(args: string[], rt: Runtime): Promise<Record<string, unknown
   }));
   const groupLimit = full ? sortedGroups.length : 20;
 
+  const tags = data.tags ?? [];
   const monitor: Record<string, unknown> = {
     id: data.id,
     name: data.name,
@@ -310,7 +311,7 @@ async function view(args: string[], rt: Runtime): Promise<Record<string, unknown
     status: data.overall_state,
     query: data.query,
     priority: data.priority ?? null,
-    tags: tagsText(data.tags, 50),
+    tags: tagsText(tags, full ? tags.length : 50),
     creator: data.creator?.handle ?? null,
     created: iso(data.created),
     modified: iso(data.modified),
@@ -327,9 +328,9 @@ async function view(args: string[], rt: Runtime): Promise<Record<string, unknown
   Object.assign(output, redactionNote(redacted));
 
   const hints: string[] = [];
-  if (message.truncated || sortedGroups.length > groupLimit) {
+  if (message.truncated || sortedGroups.length > groupLimit || (!full && tags.length > 50)) {
     hints.push(
-      `Run \`datadog-axi monitors view ${id}${orgSuffix(seam.target)} --full\` for the complete message and groups`,
+      `Run \`datadog-axi monitors view ${id}${orgSuffix(seam.target)} --full\` for the complete message and groups${!full && tags.length > 50 ? `; ${tags.length - 50} tags omitted` : ""}`,
     );
   }
   return withHelp(output, hints);
