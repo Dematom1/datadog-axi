@@ -178,7 +178,7 @@ function misplacedValueHint(spec: CommandSpec, args: string[], index: number, na
   if (close && /^[\w.-]+$/.test(value)) {
     return `Did you mean: ${commandLine(
       spec,
-      args.map((arg, i) => (i === index ? close[0] : arg)),
+      args.map((arg, i) => (i === index ? `${close[0]}${arg.slice(name.length)}` : arg)),
     )}`;
   }
   if (/^[a-z][\w-]*$/i.test(value)) {
@@ -186,7 +186,7 @@ function misplacedValueHint(spec: CommandSpec, args: string[], index: number, na
     if (bare)
       return `Did you mean: ${commandLine(
         spec,
-        args.map((arg, i) => (i === index ? bare[0] : arg)),
+        args.map((arg, i) => (i === index ? `${bare[0]}${arg.slice(name.length)}` : arg)),
       )}`;
   }
   return undefined;

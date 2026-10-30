@@ -95,6 +95,7 @@ describe("parseArgs", () => {
     };
     for (const [args, expected] of [
       [["q", "--frm", "1h"], "logs search q --from 1h"],
+      [["q", "--frm=1h"], "logs search q --from=1h"],
       [["q", "--org", "prod", "--us3.datadoghq.com"], "logs search q --org prod --site us3.datadoghq.com"],
       [["q", "--org", "prod", "site", "us3.datadoghq.com"], "logs search q --org prod --site us3.datadoghq.com"],
     ] as const) {
