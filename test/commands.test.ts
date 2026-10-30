@@ -59,6 +59,18 @@ describe("home view", () => {
     expect(stdout).toContain("incidents: 2 open");
   });
 
+  it("reports malformed monitor summaries as unavailable instead of zero", async () => {
+    const fetch = fakeFetch({
+      "GET /api/v1/monitor/search": { body: {} },
+      "GET /api/v2/incidents/search": { body: { data: { attributes: { total: 0 } } } },
+    });
+    const { stdout, exitCode } = await run([], makeRuntime({ env: EU, fetch }));
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('monitor_counts: "unavailable - UPSTREAM_ERROR');
+    expect(stdout).toContain('alerting: "unavailable - UPSTREAM_ERROR');
+    expect(stdout).not.toContain("0 monitors");
+  });
+
   it("degrades each live part to unavailable with exit 0", async () => {
     const fetch = fakeFetch({
       "GET /api/v1/monitor/search": { status: 403, body: { errors: ["Forbidden: monitors_read"] } },
@@ -110,6 +122,32 @@ describe("monitors", () => {
     });
     const { stdout } = await run(["monitors", "search", "nothing-matches"], makeRuntime({ env: EU, fetch }));
     expect(stdout).toContain('monitors: "0 matched on site datadoghq.eu');
+  });
+
+  it("reports malformed monitor responses instead of successful empty results", async () => {
+    const fetch = fakeFetch({ "GET /api/v1/monitor/search": { body: {} } });
+    const { stdout, exitCode } = await run(["monitors"], makeRuntime({ env: EU, fetch }));
+    expect(exitCode).toBe(1);
+    expect(stdout).toContain("code: UPSTREAM_ERROR");
+    expect(stdout).not.toContain("0 matched");
+  });
+
+  it("does not call an empty page an empty collection or invent a total", async () => {
+    const fetch = fakeFetch({
+      "GET /api/v1/monitor/search": { body: { monitors: [], metadata: { total_count: 12 } } },
+    });
+    const { stdout } = await run(["monitors", "search", "checkout", "--page", "4"], makeRuntime({ env: EU, fetch }));
+    expect(stdout).toContain("0 on this page");
+    expect(stdout).toContain("12 total");
+    expect(stdout).not.toContain("This org has no monitors");
+  });
+
+  it("preserves the selected site in monitor follow-up hints", async () => {
+    const fetch = fakeFetch({
+      "GET /api/v1/monitor/search": { body: { monitors: [{ id: 12 }], metadata: { total_count: 1 } } },
+    });
+    const { stdout } = await run(["monitors", "--site", "datadoghq.eu"], makeRuntime({ env: ENV_KEYS, fetch }));
+    expect(stdout).toContain('--site "datadoghq.eu"');
   });
 
   it("views a monitor with its non-OK groups problems first", async () => {
@@ -658,7 +696,11 @@ describe("pup credential source", () => {
   });
 
   it("comes after env credentials and the current stored org, and off disables it", async () => {
-    const fetch = fakeFetch({ "GET /api/v1/monitor/search": { body: {} } });
+    const fetch = fakeFetch({
+      "GET /api/v1/monitor/search": {
+        body: { monitors: [], counts: { status: [] }, metadata: { total_count: 0 } },
+      },
+    });
     expect((await run(["monitors"], makeRuntime({ env: { ...PUP, ...EU }, fetch }))).exitCode).toBe(0);
     const stored = makeRuntime({
       env: PUP,

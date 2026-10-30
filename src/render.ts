@@ -93,6 +93,11 @@ export function orgSuffix(target: { org: string; explicit: boolean }): string {
   return target.explicit ? ` --org ${target.org}` : "";
 }
 
+/** Carry the selected site into follow-up commands so they cannot switch sites. */
+export function targetSuffix(target: { org: string; site: string; explicit: boolean }): string {
+  return `${target.explicit ? ` --org ${shellQuote(target.org)}` : ""} --site ${shellQuote(target.site)}`;
+}
+
 export function iso(value: unknown): string | null {
   if (typeof value === "number") {
     const ms = value > 1e12 ? value : value * 1000;

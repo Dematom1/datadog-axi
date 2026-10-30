@@ -5,7 +5,7 @@ import { connect, readConfig, type Runtime } from "../runtime.js";
 import type { Seam } from "../seam.js";
 import { ctxBlock } from "./ctx.js";
 import { incidentStateQuery } from "./incidents.js";
-import { MONITOR_FIELDS, sortProblemsFirst, statusCounts, type MonitorSearchResponse } from "./monitors.js";
+import { MONITOR_FIELDS, parseMonitorSearchResponse, sortProblemsFirst, statusCounts } from "./monitors.js";
 
 /**
  * The no-argument home view (D-c1, S17). It starts with the same offline ctx
@@ -68,11 +68,11 @@ export async function homeCommand(rt: Runtime): Promise<Record<string, unknown>>
   }
 
   const [all, problems, incidents] = await Promise.allSettled([
-    seam.call<MonitorSearchResponse>("monitors.search", {
+    seam.call<unknown>("monitors.search", {
       query: { per_page: 1 },
       timeoutMs: HOME_TIMEOUT_MS,
     }),
-    seam.call<MonitorSearchResponse>("monitors.search", {
+    seam.call<unknown>("monitors.search", {
       query: { query: '(status:alert OR status:"no data")', per_page: 5 },
       timeoutMs: HOME_TIMEOUT_MS,
     }),
@@ -85,16 +85,29 @@ export async function homeCommand(rt: Runtime): Promise<Record<string, unknown>>
   const output: Record<string, unknown> = { ctx };
 
   if (all.status === "fulfilled") {
-    const counts = statusCounts(all.value.data);
-    output.monitor_counts = Object.keys(counts).length > 0 ? counts : "0 monitors";
+    try {
+      const data = parseMonitorSearchResponse(all.value.data);
+      if (!Array.isArray(data.counts?.status)) {
+        throw new AxiError("Datadog omitted monitor status counts", "UPSTREAM_ERROR");
+      }
+      const counts = statusCounts(data);
+      output.monitor_counts = Object.keys(counts).length > 0 ? counts : "0 monitors";
+    } catch (error) {
+      output.monitor_counts = `unavailable - ${reason(error)}`;
+    }
   } else {
     output.monitor_counts = `unavailable - ${reason(all.reason)}`;
   }
 
   if (problems.status === "fulfilled") {
-    const rows = sortProblemsFirst(problems.value.data.monitors ?? []);
-    output.alerting =
-      rows.length > 0 ? project(rows, MONITOR_FIELDS, MONITOR_FIELDS.defaults) : "0 monitors in alert or no data";
+    try {
+      const data = parseMonitorSearchResponse(problems.value.data);
+      const rows = sortProblemsFirst(data.monitors);
+      output.alerting =
+        rows.length > 0 ? project(rows, MONITOR_FIELDS, MONITOR_FIELDS.defaults) : "0 monitors in alert or no data";
+    } catch (error) {
+      output.alerting = `unavailable - ${reason(error)}`;
+    }
   } else {
     output.alerting = `unavailable - ${reason(problems.reason)}`;
   }

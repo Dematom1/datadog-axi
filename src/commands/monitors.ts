@@ -5,6 +5,7 @@ import {
   DETAIL_TEXT_LIMIT,
   iso,
   orgSuffix,
+  targetSuffix,
   project,
   rebuildCommand,
   redactionNote,
@@ -32,9 +33,25 @@ export interface MonitorSearchItem {
 }
 
 export interface MonitorSearchResponse {
-  monitors?: MonitorSearchItem[];
+  monitors: MonitorSearchItem[];
   counts?: { status?: Array<{ name?: string; count?: number }> };
   metadata?: { page?: number; page_count?: number; per_page?: number; total_count?: number };
+}
+
+export function parseMonitorSearchResponse(data: unknown): MonitorSearchResponse {
+  if (!data || typeof data !== "object" || !Array.isArray((data as { monitors?: unknown }).monitors)) {
+    throw new AxiError("Datadog returned an invalid monitor search response", "UPSTREAM_ERROR", [
+      "Retry the command; if it persists, check https://status.datadoghq.com",
+    ]);
+  }
+  const metadata = (data as { metadata?: { total_count?: unknown } }).metadata;
+  if (
+    metadata?.total_count !== undefined &&
+    (typeof metadata.total_count !== "number" || !Number.isFinite(metadata.total_count) || metadata.total_count < 0)
+  ) {
+    throw new AxiError("Datadog returned an invalid monitor total", "UPSTREAM_ERROR");
+  }
+  return data as MonitorSearchResponse;
 }
 
 const STATUS_VALUES: Record<string, string> = {
@@ -184,36 +201,44 @@ async function search(args: string[], rt: Runtime): Promise<Record<string, unkno
   );
 
   const seam = await connect(rt, parsed);
-  const { data, redacted } = await seam.call<MonitorSearchResponse>("monitors.search", {
+  const { data: rawData, redacted } = await seam.call<unknown>("monitors.search", {
     query: { query: query || undefined, page, per_page: limit, sort: "status,asc" },
   });
 
-  const monitors = sortProblemsFirst(data.monitors ?? []);
-  const total = data.metadata?.total_count ?? monitors.length;
-  const org = orgSuffix(seam.target);
+  const data = parseMonitorSearchResponse(rawData);
+  const monitors = sortProblemsFirst(data.monitors);
+  const total = data.metadata?.total_count;
+  const org = targetSuffix(seam.target);
   const site = seam.target.site;
 
   if (monitors.length === 0) {
+    const emptyPage = total === undefined || total > 0;
     return withHelp(
       {
-        monitors: `0 matched on site ${site}${query ? ` for query ${shellQuote(query)}` : ""}`,
+        monitors: emptyPage
+          ? `0 on this page (${page})${total === undefined ? "; total unknown" : ` of ${total} total`}`
+          : `0 matched on site ${site}${query ? ` for query ${shellQuote(query)}` : ""}`,
         counts: statusCounts(data),
         ...redactionNote(redacted),
       },
-      query
+      emptyPage
         ? [
-            "Drop a filter (`--status`, `--tag`, `--name`) to widen the search",
-            `Run \`datadog-axi monitors${org}\` to list every monitor with status counts`,
+            `Run \`${rebuildCommand("datadog-axi monitors search", args, ["--page"])} --page ${Math.max(page - 1, 0)}\` to inspect another page`,
           ]
-        : [
-            `This org has no monitors on site ${site}; if you expected some, check the site with \`datadog-axi ctx\``,
-            "Run `datadog-axi auth status` to confirm the key can read monitors",
-          ],
+        : query
+          ? [
+              "Drop a filter (`--status`, `--tag`, `--name`) to widen the search",
+              `Run \`datadog-axi monitors${org}\` to list every monitor with status counts`,
+            ]
+          : [
+              `This org has no monitors on site ${site}; if you expected some, check the site with \`datadog-axi ctx\``,
+              "Run `datadog-axi auth status` to confirm the key can read monitors",
+            ],
     );
   }
 
   const hints = [`Run \`datadog-axi monitors view <id>${org}\` for the query, message and failing groups`];
-  if (total > (page + 1) * limit) {
+  if (total !== undefined && total > (page + 1) * limit) {
     hints.push(
       `Run \`${rebuildCommand("datadog-axi monitors search", args, ["--page"])} --page ${page + 1}\` for the next ${limit}`,
     );
@@ -226,7 +251,8 @@ async function search(args: string[], rt: Runtime): Promise<Record<string, unkno
     {
       site,
       ...(query ? { query } : {}),
-      count: `${monitors.length} of ${total} total`,
+      count:
+        total === undefined ? `${monitors.length} returned; total unknown` : `${monitors.length} of ${total} total`,
       counts: statusCounts(data),
       monitors: project(monitors, MONITOR_FIELDS, fields),
       ...redactionNote(redacted),
