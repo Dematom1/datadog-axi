@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/Dematom1/datadog-axi/compare/datadog-axi-v0.1.1...datadog-axi-v0.1.2) (2026-10-30)
+
+
+### Bug Fixes
+
+* **monitors:** report incomplete search data truthfully ([#11](https://github.com/Dematom1/datadog-axi/issues/11)) ([7acca0d](https://github.com/Dematom1/datadog-axi/commit/7acca0dc7a1e06f02755801908ef00d842ef5245))
+
 ## [0.1.1](https://github.com/Dematom1/datadog-axi/compare/datadog-axi-v0.1.0...datadog-axi-v0.1.1) (2026-10-30)
 
 
