@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { AxiError } from "axi-sdk-js";
+import { decode } from "@toon-format/toon";
+import { formatError, renderResult } from "../src/output.js";
 import { describe, expect, it } from "vitest";
 import { intFlag, list, parseArgs, type CommandSpec } from "../src/args.js";
 import { buildMonitorQuery } from "../src/commands/monitors.js";
@@ -32,6 +34,16 @@ const SPEC: CommandSpec = {
     "--limit": { kind: "string", description: "" },
   },
 };
+
+describe("TOON help output", () => {
+  it("decodes full hinted success output", () => {
+    expect(decode(renderResult({ result: "ok", help: ["try this", "then this"] }))).toEqual({ result: "ok", help: ["try this", "then this"] });
+  });
+
+  it("decodes full hinted error output", () => {
+    expect(decode(formatError(new AxiError("bad", "VALIDATION_ERROR", ["fix it"])).output)).toEqual({ error: "bad", code: "VALIDATION_ERROR", help: ["fix it"] });
+  });
+});
 
 describe("parseArgs", () => {
   it("accepts --flag value and --flag=value, booleans and repeatable lists", () => {

@@ -8,7 +8,7 @@ import { AxiError, exitCodeForError } from "axi-sdk-js";
  */
 
 export function renderHelpBlock(lines: string[]): string {
-  return lines.length === 0 ? "" : `help[${lines.length}]:\n${lines.map((l) => `  ${l}`).join("\n")}`;
+  return lines.length === 0 ? "" : encode({ help: lines });
 }
 
 export function renderResult(result: Record<string, unknown> | string): string {
