@@ -210,7 +210,7 @@ The response shapes and some behavior come from Datadog's API documentation. The
 
 ## Releasing
 
-The release workflow stages each package version on npm. The `npm-publish` GitHub environment restricts publishing to `main` and `v*` tags, and the npm trusted publisher must use that environment. After the workflow runs, approve each staged version with 2FA by running `npm stage approve <id>` or using [npmjs.com](https://www.npmjs.com/). A staged version is not live on npm until you approve it.
+The release workflow stages each package version on npm and reports its stage ID and package version in the GitHub job summary. The `npm-publish` GitHub environment restricts publishing to `main` and `v*` tags, and the npm trusted publisher must use that environment. The summary directs the maintainer to run `axi-approve`; a staged version is not live on npm until approved with 2FA.
 
 ## License
 
