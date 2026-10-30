@@ -66,6 +66,85 @@ describe("parseArgs", () => {
     }
   });
 
+  it("suggests corrected commands for misplaced and misspelled flags", () => {
+    const spec: CommandSpec = { name: "auth guide", flags: { "--site": { kind: "string", description: "" } } };
+    for (const args of [
+      ["site", "--us3.datadoghq.com"],
+      ["--sit", "us3.datadoghq.com"],
+    ]) {
+      try {
+        parseArgs(spec, args);
+        expect.unreachable();
+      } catch (error) {
+        expect(error).toBeInstanceOf(AxiError);
+        expect((error as AxiError).code).toBe("VALIDATION_ERROR");
+        expect((error as AxiError).suggestions.join(" ")).toContain("datadog-axi auth guide --site us3.datadoghq.com");
+      }
+    }
+  });
+
+  it("preserves positionals and flag values in correction hints", () => {
+    const spec: CommandSpec = {
+      name: "logs search",
+      positionals: ["<query>"],
+      flags: {
+        "--site": { kind: "string", description: "" },
+        "--org": { kind: "string", description: "" },
+        "--from": { kind: "string", description: "" },
+      },
+    };
+    for (const [args, expected] of [
+      [["q", "--frm", "1h"], "logs search q --from 1h"],
+      [["q", "--frm=1h"], "logs search q --from=1h"],
+      [["q", "--org", "prod", "--us3.datadoghq.com"], "logs search q --org prod --site us3.datadoghq.com"],
+      [["q", "--org", "prod", "site", "us3.datadoghq.com"], "logs search q --org prod --site us3.datadoghq.com"],
+    ] as const) {
+      try {
+        parseArgs(spec, [...args]);
+        expect.unreachable();
+      } catch (error) {
+        expect((error as AxiError).suggestions.join(" ")).toContain(expected);
+      }
+    }
+  });
+
+  it("omits site corrections when --site is already present", () => {
+    const spec: CommandSpec = {
+      name: "auth guide",
+      flags: { "--site": { kind: "string", description: "" } },
+    };
+    for (const args of [
+      ["site", "us3.datadoghq.com", "--site", "eu1.datadoghq.com"],
+      ["--us3.datadoghq.com", "--site", "eu1.datadoghq.com"],
+    ]) {
+      try {
+        parseArgs(spec, args);
+        expect.unreachable();
+      } catch (error) {
+        expect((error as AxiError).suggestions.join(" ")).not.toContain("Did you mean");
+      }
+    }
+  });
+
+  it("quotes spaced arguments in correction hints", () => {
+    try {
+      parseArgs(SPEC, ["service:web status:error", "--frm", "1h"]);
+      expect.unreachable();
+    } catch (error) {
+      expect((error as AxiError).suggestions.join(" ")).toContain("'service:web status:error' --from 1h");
+    }
+  });
+
+  it("does not suggest a correction for an unrelated extra argument", () => {
+    try {
+      parseArgs(SPEC, ["q", "nonsense"]);
+      expect.unreachable();
+    } catch (error) {
+      expect((error as AxiError).code).toBe("VALIDATION_ERROR");
+      expect((error as AxiError).suggestions.join(" ")).not.toContain("Did you mean");
+    }
+  });
+
   it("rejects repeats, empty values, missing values and extra positionals", () => {
     expect(codeOf(() => parseArgs(SPEC, ["q", "--from", "1h", "--from", "2h"]))).toBe("VALIDATION_ERROR");
     expect(codeOf(() => parseArgs(SPEC, ["q", "--from="]))).toBe("VALIDATION_ERROR");

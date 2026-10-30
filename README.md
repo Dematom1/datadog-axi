@@ -138,7 +138,7 @@ Run `datadog-axi --help`, or `datadog-axi <command> --help` for one command's fl
 
 ### Conventions
 
-- Flags go after the command. Unknown flags are rejected with exit 2 and the valid flags are listed. Flags carried over from other tools get a targeted hint, for example `--state` points to `--status` and `--context` points to `--org`.
+- Flags go after the command. Unknown flags are rejected with exit 2 and the valid flags are listed. Recognizable misplaced or misspelled flags get a corrected-command hint; flags carried over from other tools also get targeted hints, for example `--state` points to `--status` and `--context` points to `--org`.
 - Flag names follow Datadog's own vocabulary: `--org`, `--site`, `--from`/`--to`, `--index`, `--status`, `--tags`, `--priority`, `--cursor`.
 - Time windows accept `15m`, `1h`, `7d`, `now-1h`, RFC3339 with a zone, or epoch seconds/milliseconds. The default is the last hour, and every result echoes the absolute UTC window. Ambiguous input, such as a date with no zone, is a usage error.
 - Queries are Datadog query strings and are passed through unchanged. A query that starts with `-` can follow `--`.
