@@ -114,7 +114,7 @@ const VIEW: CommandSpec = {
   name: "monitors view",
   positionals: ["<id>"],
   flags: {
-    "--full": { kind: "boolean", description: "Untruncated message and every non-OK group" },
+    "--full": { kind: "boolean", description: "Untruncated message, every non-OK group and every tag" },
     ...TARGET_FLAGS,
   },
 };
