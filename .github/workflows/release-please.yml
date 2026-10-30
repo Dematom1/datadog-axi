@@ -98,9 +98,9 @@ jobs:
       - if: ${{ steps.version.outputs.already_published != 'true' }}
         name: Stage package for approval
         run: |
-          stage=$(npm stage publish ./datadog-axi-*.tgz --access public --provenance --json)
-          stage_id=$(printf '%s' "$stage" | node -p "const s=JSON.parse(require('fs').readFileSync(0, 'utf8')); s.id ?? s.stageId ?? 'unavailable'")
+          npm stage publish ./datadog-axi-*.tgz --access public --provenance
           version=$(tar -xOzf datadog-axi-*.tgz package/package.json | node -p "JSON.parse(require('fs').readFileSync(0, 'utf8')).version")
+          stage_id=$(npm stage list datadog-axi --json | node -e "let s=''; process.stdin.on('data', d => s += d).on('end', () => { const stages = JSON.parse(s); const stage = (Array.isArray(stages) ? stages : stages.objects ?? []).find(x => x.version === process.argv[1]); process.stdout.write(stage?.id ?? 'unavailable') })" "$version")
           {
             echo "Stage id: $stage_id"
             echo "Package: datadog-axi"
