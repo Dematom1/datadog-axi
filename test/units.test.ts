@@ -107,6 +107,24 @@ describe("parseArgs", () => {
     }
   });
 
+  it("omits site corrections when --site is already present", () => {
+    const spec: CommandSpec = {
+      name: "auth guide",
+      flags: { "--site": { kind: "string", description: "" } },
+    };
+    for (const args of [
+      ["site", "us3.datadoghq.com", "--site", "eu1.datadoghq.com"],
+      ["--us3.datadoghq.com", "--site", "eu1.datadoghq.com"],
+    ]) {
+      try {
+        parseArgs(spec, args);
+        expect.unreachable();
+      } catch (error) {
+        expect((error as AxiError).suggestions.join(" ")).not.toContain("Did you mean");
+      }
+    }
+  });
+
   it("quotes spaced arguments in correction hints", () => {
     try {
       parseArgs(SPEC, ["service:web status:error", "--frm", "1h"]);

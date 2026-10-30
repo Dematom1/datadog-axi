@@ -169,7 +169,7 @@ function validFlagsHint(spec: CommandSpec): string {
 function misplacedValueHint(spec: CommandSpec, args: string[], index: number, name: string): string | undefined {
   const value = name.slice(2);
   const site = spec.flags["--site"];
-  if (site && site.kind !== "boolean" && /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(value)) {
+  if (site && site.kind !== "boolean" && !hasSiteFlag(args) && /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(value)) {
     return `Did you mean: ${commandLine(spec, [...args.slice(0, index), "--site", value, ...args.slice(index + 1)])}`;
   }
   const valueFlags = Object.entries(spec.flags).filter(([, flag]) => flag.kind !== "boolean");
@@ -201,7 +201,8 @@ function unexpectedArgumentHint(spec: CommandSpec, args: string[], positionals: 
     extra[0] === "site" &&
     siteValue !== undefined &&
     /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(siteValue) &&
-    spec.flags["--site"]
+    spec.flags["--site"] &&
+    !hasSiteFlag(args)
   ) {
     const siteIndex = args.lastIndexOf("site");
     return `Did you mean: ${commandLine(spec, [...args.slice(0, siteIndex), "--site", siteValue, ...args.slice(siteIndex + 2)])}`;
@@ -223,6 +224,10 @@ function unexpectedArgumentHint(spec: CommandSpec, args: string[], positionals: 
   if (!misspelled) return undefined;
   const index = args.lastIndexOf(bare);
   return `Did you mean: ${commandLine(spec, [...args.slice(0, index), misspelled, ...args.slice(index + 1)])}`;
+}
+
+function hasSiteFlag(args: string[]): boolean {
+  return args.some((arg) => arg === "--site" || arg.startsWith("--site="));
 }
 
 function commandLine(spec: CommandSpec, args: string[]): string {
