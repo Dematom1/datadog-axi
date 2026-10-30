@@ -139,7 +139,7 @@ export function parseArgs(spec: CommandSpec, args: string[]): ParsedArgs {
       `Unexpected argument${extra.length > 1 ? "s" : ""} for \`${spec.name}\`: ${extra.join(" ")}`,
       "VALIDATION_ERROR",
       [
-        unexpectedArgumentHint(spec, positionals) ?? usageLine(spec),
+        unexpectedArgumentHint(spec, args, positionals) ?? usageLine(spec),
         'Quote a query that contains spaces, e.g. "service:web status:error"',
       ],
     );
@@ -170,10 +170,7 @@ function misplacedValueHint(spec: CommandSpec, args: string[], index: number, na
   const value = name.slice(2);
   const site = spec.flags["--site"];
   if (site && site.kind !== "boolean" && /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(value)) {
-    const preceding = args
-      .slice(0, index)
-      .filter((arg) => !Object.keys(spec.flags).some((flag) => flag.slice(2) === arg));
-    return `Did you mean: ${commandLine(spec, [...preceding, "--site", value, ...args.slice(index + 1)])}`;
+    return `Did you mean: ${commandLine(spec, [...args.slice(0, index), "--site", value, ...args.slice(index + 1)])}`;
   }
   const valueFlags = Object.entries(spec.flags).filter(([, flag]) => flag.kind !== "boolean");
   const exact = valueFlags.find(([flag]) => flag.slice(2) === value);
@@ -195,8 +192,9 @@ function misplacedValueHint(spec: CommandSpec, args: string[], index: number, na
   return undefined;
 }
 
-function unexpectedArgumentHint(spec: CommandSpec, positionals: string[]): string | undefined {
-  const extra = positionals.slice(spec.positionals?.length ?? 0);
+function unexpectedArgumentHint(spec: CommandSpec, args: string[], positionals: string[]): string | undefined {
+  const declaredCount = spec.positionals?.length ?? 0;
+  const extra = positionals.slice(declaredCount);
   const siteValue = extra[1]?.replace(/^--/, "");
   if (
     extra.length === 2 &&
@@ -205,19 +203,26 @@ function unexpectedArgumentHint(spec: CommandSpec, positionals: string[]): strin
     /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(siteValue) &&
     spec.flags["--site"]
   ) {
-    return `Did you mean: ${commandLine(spec, ["--site", siteValue])}`;
+    const siteIndex = args.lastIndexOf("site");
+    return `Did you mean: ${commandLine(spec, [...args.slice(0, siteIndex), "--site", siteValue, ...args.slice(siteIndex + 2)])}`;
   }
   if (extra.length !== 1) return undefined;
   const bare = extra[0];
   if (bare === undefined) return undefined;
   const flag = Object.keys(spec.flags).find((name) => name.slice(2) === bare);
-  if (flag) return `Did you mean: ${commandLine(spec, [...positionals.slice(0, -1), flag])}`;
+  if (flag) {
+    const index = args.lastIndexOf(bare);
+    return `Did you mean: ${commandLine(spec, [...args.slice(0, index), flag, ...args.slice(index + 1)])}`;
+  }
   const valueFlag = Object.entries(spec.flags).find(([name, def]) => def.kind !== "boolean" && name === "--site");
   if (valueFlag && /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(bare)) {
-    return `Did you mean: ${commandLine(spec, [...positionals.slice(0, -1), `${valueFlag[0]} ${bare}`])}`;
+    const index = args.lastIndexOf(bare);
+    return `Did you mean: ${commandLine(spec, [...args.slice(0, index), valueFlag[0], bare, ...args.slice(index + 1)])}`;
   }
   const misspelled = Object.keys(spec.flags).find((name) => editDistanceAtMostOne(name.slice(2), bare));
-  return misspelled ? `Did you mean: ${commandLine(spec, [...positionals.slice(0, -1), misspelled])}` : undefined;
+  if (!misspelled) return undefined;
+  const index = args.lastIndexOf(bare);
+  return `Did you mean: ${commandLine(spec, [...args.slice(0, index), misspelled, ...args.slice(index + 1)])}`;
 }
 
 function commandLine(spec: CommandSpec, args: string[]): string {

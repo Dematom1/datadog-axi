@@ -83,6 +83,30 @@ describe("parseArgs", () => {
     }
   });
 
+  it("preserves positionals and flag values in correction hints", () => {
+    const spec: CommandSpec = {
+      name: "logs search",
+      positionals: ["<query>"],
+      flags: {
+        "--site": { kind: "string", description: "" },
+        "--org": { kind: "string", description: "" },
+        "--from": { kind: "string", description: "" },
+      },
+    };
+    for (const [args, expected] of [
+      [["q", "--frm", "1h"], "logs search q --from 1h"],
+      [["q", "--org", "prod", "--us3.datadoghq.com"], "logs search q --org prod --site us3.datadoghq.com"],
+      [["q", "--org", "prod", "site", "us3.datadoghq.com"], "logs search q --org prod --site us3.datadoghq.com"],
+    ] as const) {
+      try {
+        parseArgs(spec, [...args]);
+        expect.unreachable();
+      } catch (error) {
+        expect((error as AxiError).suggestions.join(" ")).toContain(expected);
+      }
+    }
+  });
+
   it("does not suggest a correction for an unrelated extra argument", () => {
     try {
       parseArgs(SPEC, ["q", "nonsense"]);
