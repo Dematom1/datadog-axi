@@ -41,12 +41,16 @@ Not affiliated with or endorsed by Datadog, Inc.
 
 v1 is read-only. It sends no writes, and write-like requests are refused with a reason. The [roadmap](ROADMAP.md) describes the planned write tier and the future list.
 
-## Install
+## Install and quick start
 
 Requires Node.js 20.19+ or 22.12+.
 
 ```sh
-npm install -g datadog-axi    # or run on demand: npx -y datadog-axi
+npm install -g datadog-axi
+# Or run without installing:
+npx -y datadog-axi
+# Install the agent session hook:
+datadog-axi setup hooks
 ```
 
 ## Credentials
@@ -187,6 +191,8 @@ There are two ways to give an agent datadog-axi context, and you only need one.
 ```
 
 ## Development
+
+Build from source and run the checks:
 
 ```sh
 npm ci
