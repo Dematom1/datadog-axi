@@ -37,11 +37,18 @@ const SPEC: CommandSpec = {
 
 describe("TOON help output", () => {
   it("decodes full hinted success output", () => {
-    expect(decode(renderResult({ result: "ok", help: ["try this", "then this"] }))).toEqual({ result: "ok", help: ["try this", "then this"] });
+    expect(decode(renderResult({ result: "ok", help: ["try this", "then this"] }))).toEqual({
+      result: "ok",
+      help: ["try this", "then this"],
+    });
   });
 
   it("decodes full hinted error output", () => {
-    expect(decode(formatError(new AxiError("bad", "VALIDATION_ERROR", ["fix it"])).output)).toEqual({ error: "bad", code: "VALIDATION_ERROR", help: ["fix it"] });
+    expect(decode(formatError(new AxiError("bad", "VALIDATION_ERROR", ["fix it"])).output)).toEqual({
+      error: "bad",
+      code: "VALIDATION_ERROR",
+      help: ["fix it"],
+    });
   });
 });
 
