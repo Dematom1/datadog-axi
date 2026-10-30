@@ -150,6 +150,18 @@ describe("monitors", () => {
     expect(stdout).toContain('--site "datadoghq.eu"');
   });
 
+  it("shows every monitor tag with --full and reports omitted tags otherwise", async () => {
+    const tags = Array.from({ length: 52 }, (_, i) => `tag:${i}`);
+    const fetch = fakeFetch({ "GET /api/v1/monitor/102": { body: { ...fixture("monitor-get.json"), tags } } });
+    const normal = await run(["monitors", "view", "102"], makeRuntime({ env: EU, fetch }));
+    expect(normal.stdout).toContain("tag:49");
+    expect(normal.stdout).not.toContain("tag:50");
+    expect(normal.stdout).toContain("2 tags omitted");
+    const full = await run(["monitors", "view", "102", "--full"], makeRuntime({ env: EU, fetch }));
+    expect(full.stdout).toContain("tag:51");
+    expect(full.stdout).not.toContain("2 tags omitted");
+  });
+
   it("views a monitor with its non-OK groups problems first", async () => {
     const fetch = fakeFetch({ "GET /api/v1/monitor/102": { body: fixture("monitor-get.json") } });
     const { stdout, exitCode } = await run(["monitors", "view", "102"], makeRuntime({ env: EU, fetch }));
