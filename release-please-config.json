@@ -6,7 +6,8 @@
   "packages": {
     ".": {
       "release-type": "node",
-      "package-name": "datadog-axi"
+      "package-name": "datadog-axi",
+      "extra-files": ["src/version.ts"]
     }
   }
 }
