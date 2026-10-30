@@ -152,7 +152,7 @@ describe("monitors", () => {
 
   it("shows every monitor tag with --full and reports omitted tags otherwise", async () => {
     const tags = Array.from({ length: 52 }, (_, i) => `tag:${i}`);
-    const fetch = fakeFetch({ "GET /api/v1/monitor/102": { body: { ...fixture("monitor-get.json"), tags } } });
+    const fetch = fakeFetch({ "GET /api/v1/monitor/102": { body: { ...fixture<Record<string, unknown>>("monitor-get.json"), tags } } });
     const normal = await run(["monitors", "view", "102"], makeRuntime({ env: EU, fetch }));
     expect(normal.stdout).toContain("tag:49");
     expect(normal.stdout).not.toContain("tag:50");
