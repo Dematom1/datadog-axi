@@ -1,14 +1,10 @@
 import { encode } from "@toon-format/toon";
 import { AxiError, exitCodeForError } from "axi-sdk-js";
 
-/**
- * Final rendering. Data is TOON via the official encoder; `help` hints are
- * printed as one unquoted line each (gh-axi style) so pasteable commands
- * keep their quotes intact. Errors use the same shape on stdout.
- */
+/** Final rendering uses the official TOON encoder, including help hints. */
 
 export function renderHelpBlock(lines: string[]): string {
-  return lines.length === 0 ? "" : `help[${lines.length}]:\n${lines.map((l) => `  ${l}`).join("\n")}`;
+  return lines.length === 0 ? "" : encode({ help: lines });
 }
 
 export function renderResult(result: Record<string, unknown> | string): string {
