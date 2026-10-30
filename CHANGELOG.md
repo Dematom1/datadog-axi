@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.3](https://github.com/Dematom1/datadog-axi/compare/datadog-axi-v0.1.2...datadog-axi-v0.1.3) (2026-10-30)
+
+
+### Features
+
+* suggest corrections for misplaced and misspelled flags ([#17](https://github.com/Dematom1/datadog-axi/issues/17)) ([a6c1bdf](https://github.com/Dematom1/datadog-axi/commit/a6c1bdf1954b3f51100259350b92798c4a34f057))
+
+
+### Bug Fixes
+
+* enable CI on release-please PRs with an app token ([#14](https://github.com/Dematom1/datadog-axi/issues/14)) ([3b69d1f](https://github.com/Dematom1/datadog-axi/commit/3b69d1fa292239cacc3f33375b1e55d2488832e9))
+* **monitors:** show all tags in full monitor views ([#16](https://github.com/Dematom1/datadog-axi/issues/16)) ([eb7b444](https://github.com/Dematom1/datadog-axi/commit/eb7b444910f2ac61d92f762ca9e8369fd43150f8))
+* **output:** encode help hints as valid TOON ([#19](https://github.com/Dematom1/datadog-axi/issues/19)) ([aeb8fe1](https://github.com/Dematom1/datadog-axi/commit/aeb8fe18a98be1061bea79954f8df1aa7c6a2a00))
+
 ## [0.1.2](https://github.com/Dematom1/datadog-axi/compare/datadog-axi-v0.1.1...datadog-axi-v0.1.2) (2026-10-30)
 
 
