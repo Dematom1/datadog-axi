@@ -30,7 +30,7 @@ jobs:
           RELEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
         run: |
           if [[ -z "$RELEASE_APP_ID" || -z "$RELEASE_APP_PRIVATE_KEY" ]]; then
-            echo "Missing RELEASE_APP_ID or RELEASE_APP_PRIVATE_KEY; see the release App setup runbook." >&2
+            echo "::error::Missing RELEASE_APP_ID or RELEASE_APP_PRIVATE_KEY repository secrets. Create a GitHub App with only Contents and Pull requests read/write, install it on this repository, and save its App ID and private key as these secrets." >&2
             exit 1
           fi
 
