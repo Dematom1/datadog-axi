@@ -216,9 +216,10 @@ function unexpectedArgumentHint(spec: CommandSpec, args: string[], positionals: 
     return `Did you mean: ${commandLine(spec, [...args.slice(0, index), flag, ...args.slice(index + 1)])}`;
   }
   const valueFlag = Object.entries(spec.flags).find(([name, def]) => def.kind !== "boolean" && name === "--site");
-  if (valueFlag && /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(bare)) {
+  const siteHost = bare.replace(/^--/, "");
+  if (valueFlag && !hasSiteFlag(args) && /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(siteHost)) {
     const index = args.lastIndexOf(bare);
-    return `Did you mean: ${commandLine(spec, [...args.slice(0, index), valueFlag[0], bare, ...args.slice(index + 1)])}`;
+    return `Did you mean: ${commandLine(spec, [...args.slice(0, index), valueFlag[0], siteHost, ...args.slice(index + 1)])}`;
   }
   const misspelled = Object.keys(spec.flags).find((name) => editDistanceAtMostOne(name.slice(2), bare));
   if (!misspelled) return undefined;
