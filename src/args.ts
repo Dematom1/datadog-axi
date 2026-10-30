@@ -81,7 +81,13 @@ export function parseArgs(spec: CommandSpec, args: string[]): ParsedArgs {
     const flag = spec.flags[name];
 
     if (!flag) {
-      throw unknownFlagError(spec, name);
+      const misplaced = misplacedValueHint(spec, args, i, name);
+      throw misplaced
+        ? new AxiError(`Unknown flag ${name} for \`${spec.name}\``, "VALIDATION_ERROR", [
+            misplaced,
+            validFlagsHint(spec),
+          ])
+        : unknownFlagError(spec, name);
     }
 
     if (flag.kind === "boolean") {
@@ -132,7 +138,10 @@ export function parseArgs(spec: CommandSpec, args: string[]): ParsedArgs {
     throw new AxiError(
       `Unexpected argument${extra.length > 1 ? "s" : ""} for \`${spec.name}\`: ${extra.join(" ")}`,
       "VALIDATION_ERROR",
-      [usageLine(spec), 'Quote a query that contains spaces, e.g. "service:web status:error"'],
+      [
+        unexpectedArgumentHint(spec, positionals) ?? usageLine(spec),
+        'Quote a query that contains spaces, e.g. "service:web status:error"',
+      ],
     );
   }
   if (positionals.length < required) {
@@ -155,6 +164,82 @@ function validFlagsHint(spec: CommandSpec): string {
   return names.length > 0
     ? `Valid flags for \`${spec.name}\`: ${names.join(", ")} (--help always allowed)`
     : `\`${spec.name}\` takes no flags (--help always allowed)`;
+}
+
+function misplacedValueHint(spec: CommandSpec, args: string[], index: number, name: string): string | undefined {
+  const value = name.slice(2);
+  const site = spec.flags["--site"];
+  if (site && site.kind !== "boolean" && /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(value)) {
+    const preceding = args
+      .slice(0, index)
+      .filter((arg) => !Object.keys(spec.flags).some((flag) => flag.slice(2) === arg));
+    return `Did you mean: ${commandLine(spec, [...preceding, "--site", value, ...args.slice(index + 1)])}`;
+  }
+  const valueFlags = Object.entries(spec.flags).filter(([, flag]) => flag.kind !== "boolean");
+  const exact = valueFlags.find(([flag]) => flag.slice(2) === value);
+  const close = exact ?? valueFlags.find(([flag]) => editDistanceAtMostOne(flag.slice(2), value));
+  if (close && /^[\w.-]+$/.test(value)) {
+    return `Did you mean: ${commandLine(
+      spec,
+      args.map((arg, i) => (i === index ? close[0] : arg)),
+    )}`;
+  }
+  if (/^[a-z][\w-]*$/i.test(value)) {
+    const bare = valueFlags.find(([flag]) => flag.slice(2) === value);
+    if (bare)
+      return `Did you mean: ${commandLine(
+        spec,
+        args.map((arg, i) => (i === index ? bare[0] : arg)),
+      )}`;
+  }
+  return undefined;
+}
+
+function unexpectedArgumentHint(spec: CommandSpec, positionals: string[]): string | undefined {
+  const extra = positionals.slice(spec.positionals?.length ?? 0);
+  const siteValue = extra[1]?.replace(/^--/, "");
+  if (
+    extra.length === 2 &&
+    extra[0] === "site" &&
+    siteValue !== undefined &&
+    /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(siteValue) &&
+    spec.flags["--site"]
+  ) {
+    return `Did you mean: ${commandLine(spec, ["--site", siteValue])}`;
+  }
+  if (extra.length !== 1) return undefined;
+  const bare = extra[0];
+  if (bare === undefined) return undefined;
+  const flag = Object.keys(spec.flags).find((name) => name.slice(2) === bare);
+  if (flag) return `Did you mean: ${commandLine(spec, [...positionals.slice(0, -1), flag])}`;
+  const valueFlag = Object.entries(spec.flags).find(([name, def]) => def.kind !== "boolean" && name === "--site");
+  if (valueFlag && /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(bare)) {
+    return `Did you mean: ${commandLine(spec, [...positionals.slice(0, -1), `${valueFlag[0]} ${bare}`])}`;
+  }
+  const misspelled = Object.keys(spec.flags).find((name) => editDistanceAtMostOne(name.slice(2), bare));
+  return misspelled ? `Did you mean: ${commandLine(spec, [...positionals.slice(0, -1), misspelled])}` : undefined;
+}
+
+function commandLine(spec: CommandSpec, args: string[]): string {
+  return `Run \`datadog-axi ${spec.name}${args.length ? ` ${args.join(" ")}` : ""}\``;
+}
+
+function editDistanceAtMostOne(a: string, b: string): boolean {
+  if (Math.abs(a.length - b.length) > 1 || a === b) return false;
+  let i = 0,
+    j = 0,
+    edits = 0;
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) {
+      i++;
+      j++;
+      continue;
+    }
+    if (++edits > 1) return false;
+    if (a.length >= b.length) i++;
+    if (b.length >= a.length) j++;
+  }
+  return edits + Number(i < a.length || j < b.length) <= 1;
 }
 
 function unknownFlagError(spec: CommandSpec, name: string): AxiError {

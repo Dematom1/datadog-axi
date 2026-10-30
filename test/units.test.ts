@@ -66,6 +66,33 @@ describe("parseArgs", () => {
     }
   });
 
+  it("suggests corrected commands for misplaced and misspelled flags", () => {
+    const spec: CommandSpec = { name: "auth guide", flags: { "--site": { kind: "string", description: "" } } };
+    for (const args of [
+      ["site", "--us3.datadoghq.com"],
+      ["--sit", "us3.datadoghq.com"],
+    ]) {
+      try {
+        parseArgs(spec, args);
+        expect.unreachable();
+      } catch (error) {
+        expect(error).toBeInstanceOf(AxiError);
+        expect((error as AxiError).code).toBe("VALIDATION_ERROR");
+        expect((error as AxiError).suggestions.join(" ")).toContain("datadog-axi auth guide --site us3.datadoghq.com");
+      }
+    }
+  });
+
+  it("does not suggest a correction for an unrelated extra argument", () => {
+    try {
+      parseArgs(SPEC, ["q", "nonsense"]);
+      expect.unreachable();
+    } catch (error) {
+      expect((error as AxiError).code).toBe("VALIDATION_ERROR");
+      expect((error as AxiError).suggestions.join(" ")).not.toContain("Did you mean");
+    }
+  });
+
   it("rejects repeats, empty values, missing values and extra positionals", () => {
     expect(codeOf(() => parseArgs(SPEC, ["q", "--from", "1h", "--from", "2h"]))).toBe("VALIDATION_ERROR");
     expect(codeOf(() => parseArgs(SPEC, ["q", "--from="]))).toBe("VALIDATION_ERROR");
