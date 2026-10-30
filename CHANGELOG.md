@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4](https://github.com/Dematom1/datadog-axi/compare/datadog-axi-v0.1.3...datadog-axi-v0.1.4) (2026-10-30)
+
+
+### Bug Fixes
+
+* restrict release PR exemptions to same-repository bots ([#20](https://github.com/Dematom1/datadog-axi/issues/20)) ([6367995](https://github.com/Dematom1/datadog-axi/commit/6367995d506ebd8a8b7db14ba047472c79a9ffe9))
+
 ## [0.1.3](https://github.com/Dematom1/datadog-axi/compare/datadog-axi-v0.1.2...datadog-axi-v0.1.3) (2026-10-30)
 
 
