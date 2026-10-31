@@ -77,7 +77,7 @@ function commandInvocations(line: string): { command: string; site?: string }[] 
   let quoted = false;
   let escaped = false;
   const pushToken = () => {
-    if (token) commands[commands.length - 1].push({ value: token, quoted });
+    if (token) commands[commands.length - 1]?.push({ value: token, quoted });
     token = "";
     quoted = false;
   };
@@ -95,7 +95,7 @@ function commandInvocations(line: string): { command: string; site?: string }[] 
     }
     else if (/[;&|]/.test(char)) {
       pushToken();
-      if (commands[commands.length - 1].length) commands.push([]);
+      if (commands[commands.length - 1]?.length) commands.push([]);
     } else if (/\s/.test(char)) pushToken();
     else token += char;
   }
@@ -122,8 +122,9 @@ function invocations(value: unknown): { command: string; site?: string }[] {
   const item = value as Record<string, unknown>;
   if (item.type === "tool_use") {
     const input = item.input;
-    if (input && typeof input === "object" && typeof (input as Record<string, unknown>).command === "string") {
-      return commandInvocations((input as Record<string, string>).command);
+    if (input && typeof input === "object") {
+      const command = (input as Record<string, unknown>).command;
+      if (typeof command === "string") return commandInvocations(command);
     }
     return [];
   }
