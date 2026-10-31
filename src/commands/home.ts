@@ -1,4 +1,5 @@
 import { AxiError } from "axi-sdk-js";
+import { parseArgs, TARGET_FLAGS, str } from "../args.js";
 import { guideSite, setupGuide, US1_FALLBACK_HINT } from "../guide.js";
 import { project, targetSuffix } from "../render.js";
 import { connect, readConfig, type Runtime } from "../runtime.js";
@@ -24,10 +25,11 @@ function reason(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-export async function homeCommand(rt: Runtime): Promise<Record<string, unknown>> {
+export async function homeCommand(rt: Runtime, args: string[] = []): Promise<Record<string, unknown>> {
+  const parsed = parseArgs({ name: "home", flags: TARGET_FLAGS }, args);
   let ctx: Record<string, unknown>;
   try {
-    ctx = ctxBlock({}, rt.env, readConfig(rt), rt.configPath);
+    ctx = ctxBlock({ org: str(parsed, "--org"), site: str(parsed, "--site") }, rt.env, readConfig(rt), rt.configPath);
   } catch (error) {
     return {
       ctx: `unavailable - ${reason(error)}`,
@@ -54,7 +56,7 @@ export async function homeCommand(rt: Runtime): Promise<Record<string, unknown>>
 
   let seam: Seam;
   try {
-    seam = await connect(rt, { positionals: [], flags: {} });
+    seam = await connect(rt, parsed);
   } catch (error) {
     return {
       ctx,

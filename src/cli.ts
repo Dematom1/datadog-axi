@@ -92,6 +92,7 @@ export const COMMAND_HELP: Record<string, string> = {
 type Handler = (args: string[], rt: Runtime) => Promise<Record<string, unknown> | string>;
 
 const HANDLERS: Record<string, Handler> = {
+  home: (args, rt) => homeCommand(rt, args),
   monitors: monitorsCommand,
   logs: logsCommand,
   metrics: metricsCommand,
