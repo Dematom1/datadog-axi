@@ -1,14 +1,45 @@
-import { chmodSync, createReadStream, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  closeSync,
+  createReadStream,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { randomUUID } from "node:crypto";
 import { createInterface } from "node:readline";
 import { configPath } from "./config.js";
 import { renderResult } from "./output.js";
 
 const MAX_DIRECTORIES = 100;
 const MAX_TRANSCRIPT_BYTES = 256 * 1024 * 1024;
+const LOCK_TIMEOUT_MS = 2_000;
+const STALE_LOCK_MS = 30_000;
 type Summary = { ended: string; commands: Record<string, number>; site?: string };
 
 function sessionsPath(env: NodeJS.ProcessEnv): string {
   return configPath(env).replace(/config\.json$/, "sessions.json");
+}
+
+async function acquireLock(path: string): Promise<number | undefined> {
+  const deadline = Date.now() + LOCK_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    try {
+      return openSync(path, "wx", 0o600);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") return undefined;
+      try {
+        if (Date.now() - statSync(path).mtimeMs > STALE_LOCK_MS) unlinkSync(path);
+      } catch {}
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+  }
+  return undefined;
 }
 
 function commandInvocations(line: string): { command: string; site?: string }[] {
@@ -102,24 +133,37 @@ export async function recordSessionEnd(
   if (Object.keys(counts).length === 0) return;
   const site = Object.entries(sites).sort((a, b) => b[1] - a[1])[0]?.[0];
   const path = sessionsPath(env);
-  let directories: Record<string, Summary> = {};
-  try {
-    const data: unknown = JSON.parse(readFileSync(path, "utf8"));
-    if (data && typeof data === "object" && !Array.isArray(data) && "directories" in data) {
-      const candidate = (data as { directories: unknown }).directories;
-      if (candidate && typeof candidate === "object" && !Array.isArray(candidate))
-        directories = candidate as Record<string, Summary>;
-    }
-  } catch {
-    /* A missing or corrupt history is an empty history. */
-  }
-  delete directories[cwd];
-  directories[cwd] = { ended: new Date().toISOString(), commands: counts, ...(site ? { site } : {}) };
-  for (const old of Object.keys(directories).slice(0, Math.max(0, Object.keys(directories).length - MAX_DIRECTORIES)))
-    delete directories[old];
   mkdirSync(path.slice(0, path.lastIndexOf("/")), { recursive: true, mode: 0o700 });
-  writeFileSync(path, `${JSON.stringify({ directories }, null, 2)}\n`, { mode: 0o600 });
-  chmodSync(path, 0o600);
+  const lockPath = `${path}.lock`;
+  const lock = await acquireLock(lockPath);
+  if (lock === undefined) return;
+  const temporaryPath = `${path}.${randomUUID()}.tmp`;
+  try {
+    let directories: Record<string, Summary> = {};
+    try {
+      const data: unknown = JSON.parse(readFileSync(path, "utf8"));
+      if (data && typeof data === "object" && !Array.isArray(data) && "directories" in data) {
+        const candidate = (data as { directories: unknown }).directories;
+        if (candidate && typeof candidate === "object" && !Array.isArray(candidate))
+          directories = candidate as Record<string, Summary>;
+      }
+    } catch {
+      /* A missing or corrupt history is an empty history. */
+    }
+    delete directories[cwd];
+    directories[cwd] = { ended: new Date().toISOString(), commands: counts, ...(site ? { site } : {}) };
+    for (const old of Object.keys(directories).slice(0, Math.max(0, Object.keys(directories).length - MAX_DIRECTORIES)))
+      delete directories[old];
+    writeFileSync(temporaryPath, `${JSON.stringify({ directories }, null, 2)}\n`, { mode: 0o600, flag: "wx" });
+    chmodSync(temporaryPath, 0o600);
+    renameSync(temporaryPath, path);
+  } finally {
+    try {
+      unlinkSync(temporaryPath);
+    } catch {}
+    closeSync(lock);
+    unlinkSync(lockPath);
+  }
 }
 
 export function lastSession(env: NodeJS.ProcessEnv, cwd = process.cwd()): Summary | undefined {
