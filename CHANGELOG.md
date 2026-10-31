@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.6](https://github.com/Dematom1/datadog-axi/compare/datadog-axi-v0.1.5...datadog-axi-v0.1.6) (2026-10-31)
+
+
+### Features
+
+* record datadog-axi session summaries ([#27](https://github.com/Dematom1/datadog-axi/issues/27)) ([b42cead](https://github.com/Dematom1/datadog-axi/commit/b42cead68d8fb0775b7a312cfcc199c0c6a7b3c3))
+
 ## [0.1.5](https://github.com/Dematom1/datadog-axi/compare/datadog-axi-v0.1.4...datadog-axi-v0.1.5) (2026-10-31)
 
 
