@@ -53,7 +53,7 @@ describe("home view", () => {
     const { stdout, exitCode } = await run([], runtime);
     expect(exitCode).toBe(0);
     expect(stdout.match(/--site/g)).toHaveLength(3);
-    expect(stdout).toContain('--site \\\"datadoghq.eu\\\"');
+    expect(stdout).toContain('--site \\"datadoghq.eu\\"');
     expect(stdout).not.toContain("--org");
   });
 
