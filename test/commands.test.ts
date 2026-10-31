@@ -153,14 +153,18 @@ describe("monitors", () => {
     expect(stdout).not.toContain("This org has no monitors");
   });
 
-  it("preserves the selected site in monitor follow-up hints", async () => {
+  it("preserves the selected site in every monitor follow-up hint", async () => {
     const fetch = fakeFetch({
-      "GET /api/v1/monitor/search": { body: { monitors: [{ id: 12 }], metadata: { total_count: 1 } } },
+      "GET /api/v1/monitor/search": {
+        body: {
+          monitors: [{ id: 12, status: "Alert" }],
+          metadata: { total_count: 2 },
+        },
+      },
     });
     const { stdout } = await run(["monitors", "--site", "datadoghq.eu"], makeRuntime({ env: ENV_KEYS, fetch }));
-    expect(stdout).toContain(
-      'help[1]: "Run `datadog-axi monitors view <id> --site \\"datadoghq.eu\\"` for the query, message and failing groups"',
-    );
+    expect(stdout).toContain("monitors view <id> --site \\\"datadoghq.eu\\\"");
+    expect(stdout).toContain("monitors --status alert --site \\\"datadoghq.eu\\\"");
   });
 
   it("shows every monitor tag with --full and reports omitted tags otherwise", async () => {
