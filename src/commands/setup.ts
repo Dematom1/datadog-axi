@@ -95,11 +95,15 @@ function claudeHookGroups(path: string): {
   };
 }
 
+function sessionEndHookCommand(): string {
+  return `'${resolveCliEntrypoint().replace(/'/g, "'\\''")}' context end`;
+}
+
 function hasClaudeSessionEndHook(path: string): boolean {
+  const command = sessionEndHookCommand();
   return claudeHookGroups(path).groups.some(
     (group) =>
-      Array.isArray(group.hooks) &&
-      group.hooks.some((hook: { command?: string }) => hook.command?.endsWith(" context end")),
+      Array.isArray(group.hooks) && group.hooks.some((hook: { command?: string }) => hook.command === command),
   );
 }
 
@@ -109,7 +113,7 @@ function removeClaudeSessionEndHook(path: string): boolean {
     .map((group) => ({
       ...group,
       hooks: Array.isArray(group.hooks)
-        ? group.hooks.filter((hook: { command?: string }) => !hook.command?.endsWith(" context end"))
+        ? group.hooks.filter((hook: { command?: string }) => hook.command !== sessionEndHookCommand())
         : [],
     }))
     .filter((group) => (group.hooks as unknown[]).length > 0);
@@ -128,7 +132,7 @@ function installClaudeSessionEndHook(path: string): void {
   if (!settings) return;
   const hooks = settings.hooks && typeof settings.hooks === "object" ? (settings.hooks as Record<string, unknown>) : {};
   const groups = Array.isArray(hooks.SessionEnd) ? (hooks.SessionEnd as Array<Record<string, unknown>>) : [];
-  const command = `${resolveCliEntrypoint()} context end`;
+  const command = sessionEndHookCommand();
   if (
     !groups.some(
       (group) =>
