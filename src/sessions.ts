@@ -1,4 +1,4 @@
-import { createReadStream, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, createReadStream, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { createInterface } from "node:readline";
 import { configPath } from "./config.js";
 import { renderResult } from "./output.js";
@@ -11,7 +11,7 @@ function sessionsPath(env: NodeJS.ProcessEnv): string {
   return configPath(env).replace(/config\.json$/, "sessions.json");
 }
 
-function invocations(value: unknown): string[] {
+function invocations(value: unknown): { command: string; site?: string }[] {
   if (Array.isArray(value)) return value.flatMap(invocations);
   if (value === null || typeof value !== "object") return [];
   const item = value as Record<string, unknown>;
@@ -20,8 +20,13 @@ function invocations(value: unknown): string[] {
     if (input && typeof input === "object" && typeof (input as Record<string, unknown>).command === "string") {
       const line = (input as Record<string, string>).command;
       if (!line) return [];
-      return [...line.matchAll(/(?:^|[;&|\s])(?:[^;&|\s]+\/)?datadog-axi(?![\w-])(?:\s+([a-z][a-z-]*))?/g)].flatMap(
-        (m) => [m[1] ?? "home"],
+      return [...line.matchAll(/(?:^|[;&|\s])(?:[^;&|\s]+\/)?datadog-axi(?![\w-])(?:\s+([a-z][a-z-]*))?/g)].map(
+        (match) => {
+          const end = line.slice(match.index + match[0].length).search(/[;&|]/);
+          const invocation = line.slice(match.index, end < 0 ? undefined : match.index + match[0].length + end);
+          const site = invocation.match(/(?:^|\s)--site(?:=|\s+)([A-Za-z0-9.-]+)/)?.[1];
+          return { command: match[1] ?? "home", ...(site ? { site } : {}) };
+        },
       );
     }
     return [];
@@ -49,11 +54,9 @@ export async function recordSessionEnd(
     if (!line.includes("datadog-axi")) continue;
     try {
       const parsed: unknown = JSON.parse(line);
-      for (const command of invocations(parsed)) counts[command] = (counts[command] ?? 0) + 1;
-      const text = JSON.stringify(parsed);
-      for (const match of text.matchAll(/--site[=\s]+([A-Za-z0-9.-]+)/g)) {
-        const site = match[1];
-        if (site) sites[site] = (sites[site] ?? 0) + 1;
+      for (const invocation of invocations(parsed)) {
+        counts[invocation.command] = (counts[invocation.command] ?? 0) + 1;
+        if (invocation.site) sites[invocation.site] = (sites[invocation.site] ?? 0) + 1;
       }
     } catch {
       /* Ignore incomplete transcript lines. */
@@ -79,6 +82,7 @@ export async function recordSessionEnd(
     delete directories[old];
   mkdirSync(path.slice(0, path.lastIndexOf("/")), { recursive: true, mode: 0o700 });
   writeFileSync(path, `${JSON.stringify({ directories }, null, 2)}\n`, { mode: 0o600 });
+  chmodSync(path, 0o600);
 }
 
 export function lastSession(env: NodeJS.ProcessEnv, cwd = process.cwd()): Summary | undefined {
