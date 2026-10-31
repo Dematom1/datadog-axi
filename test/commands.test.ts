@@ -39,6 +39,24 @@ describe("home view", () => {
     );
   });
 
+  it("carries the selected org and site into every follow-up hint", async () => {
+    const fetch = fakeFetch({
+      "GET /api/v1/monitor/search": { body: fixture("monitor-search.json") },
+      "GET /api/v2/incidents/search": { body: fixture("incidents-search.json") },
+    });
+    const runtime = makeRuntime({
+      env: { DD_API_KEY: "a".repeat(32), DD_APP_KEY: "b".repeat(40), DD_SITE: "datadoghq.eu" },
+      config: {},
+      keychain: { get: async () => null, set: async () => {}, delete: async () => {} },
+      fetch,
+    });
+    const { stdout, exitCode } = await run([], runtime);
+    expect(exitCode).toBe(0);
+    expect(stdout.match(/--site/g)).toHaveLength(3);
+    expect(stdout).toContain('--site \\\"datadoghq.eu\\\"');
+    expect(stdout).not.toContain("--org");
+  });
+
   it("adds monitor counts, alerting monitors and open incidents", async () => {
     const search = fixture<{ monitors: unknown[] }>("monitor-search.json");
     const fetch = fakeFetch({

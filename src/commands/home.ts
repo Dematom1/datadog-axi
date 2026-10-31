@@ -1,6 +1,6 @@
 import { AxiError } from "axi-sdk-js";
 import { guideSite, setupGuide, US1_FALLBACK_HINT } from "../guide.js";
-import { project } from "../render.js";
+import { project, targetSuffix } from "../render.js";
 import { connect, readConfig, type Runtime } from "../runtime.js";
 import type { Seam } from "../seam.js";
 import { ctxBlock } from "./ctx.js";
@@ -118,10 +118,11 @@ export async function homeCommand(rt: Runtime): Promise<Record<string, unknown>>
     output.incidents = `unavailable - ${reason(incidents.reason)}`;
   }
 
+  const target = targetSuffix(seam.target);
   output.help = [
-    "Run `datadog-axi monitors --status alert` for every alerting monitor",
-    "Run `datadog-axi monitors view <id>` for a monitor's query and failing groups",
-    'Run `datadog-axi logs aggregate "status:error" --by service` to see where errors come from',
+    `Run \`datadog-axi monitors --status alert${target}\` for every alerting monitor`,
+    `Run \`datadog-axi monitors view <id>${target}\` for a monitor's query and failing groups`,
+    `Run \`datadog-axi logs aggregate "status:error" --by service${target}\` to see where errors come from`,
     "Run `datadog-axi --help` for every command",
   ];
   return output;
