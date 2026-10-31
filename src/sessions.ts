@@ -3,6 +3,7 @@ import {
   closeSync,
   createReadStream,
   existsSync,
+  fstatSync,
   mkdirSync,
   openSync,
   readFileSync,
@@ -26,18 +27,32 @@ function sessionsPath(env: NodeJS.ProcessEnv): string {
   return configPath(env).replace(/config\.json$/, "sessions.json");
 }
 
-async function acquireLock(path: string): Promise<number | undefined> {
+type Lock = { fd: number; dev: number; ino: number };
+
+function unlinkLock(path: string, lock: Pick<Lock, "dev" | "ino">): void {
+  try {
+    const current = statSync(path);
+    if (current.dev === lock.dev && current.ino === lock.ino) unlinkSync(path);
+  } catch {}
+}
+
+async function acquireLock(path: string): Promise<Lock | undefined> {
   const deadline = Date.now() + LOCK_TIMEOUT_MS;
   while (Date.now() < deadline) {
+    let fd: number;
     try {
-      return openSync(path, "wx", 0o600);
+      fd = openSync(path, "wx", 0o600);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "EEXIST") return undefined;
       try {
-        if (Date.now() - statSync(path).mtimeMs > STALE_LOCK_MS) unlinkSync(path);
+        const staleLock = statSync(path);
+        if (Date.now() - staleLock.mtimeMs > STALE_LOCK_MS) unlinkLock(path, staleLock);
       } catch {}
       await new Promise((resolve) => setTimeout(resolve, 25));
+      continue;
     }
+    const { dev, ino } = fstatSync(fd);
+    return { fd, dev, ino };
   }
   return undefined;
 }
@@ -161,8 +176,8 @@ export async function recordSessionEnd(
     try {
       unlinkSync(temporaryPath);
     } catch {}
-    closeSync(lock);
-    unlinkSync(lockPath);
+    closeSync(lock.fd);
+    unlinkLock(lockPath, lock);
   }
 }
 
