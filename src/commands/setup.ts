@@ -129,7 +129,7 @@ function installClaudeSessionEndHook(path: string): void {
   }
   const hooks = settings.hooks && typeof settings.hooks === "object" ? (settings.hooks as Record<string, unknown>) : {};
   const groups = Array.isArray(hooks.SessionEnd) ? (hooks.SessionEnd as Array<Record<string, unknown>>) : [];
-  const command = `${process.argv[1]} context end`;
+  const command = `${resolveCtxEntrypoint()} context end`;
   if (
     !groups.some(
       (group) =>
