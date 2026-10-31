@@ -11,6 +11,46 @@ function sessionsPath(env: NodeJS.ProcessEnv): string {
   return configPath(env).replace(/config\.json$/, "sessions.json");
 }
 
+function commandInvocations(line: string): { command: string; site?: string }[] {
+  const commands: string[][] = [[]];
+  let token = "";
+  let quote = "";
+  let escaped = false;
+  const pushToken = () => {
+    if (token) commands[commands.length - 1].push(token);
+    token = "";
+  };
+  for (const char of line) {
+    if (escaped) {
+      token += char;
+      escaped = false;
+    } else if (char === "\\" && quote !== "'") escaped = true;
+    else if (quote) {
+      if (char === quote) quote = "";
+      else token += char;
+    } else if (char === "'" || char === '"') quote = char;
+    else if (/[;&|]/.test(char)) {
+      pushToken();
+      if (commands[commands.length - 1].length) commands.push([]);
+    } else if (/\s/.test(char)) pushToken();
+    else token += char;
+  }
+  pushToken();
+  return commands.flatMap((parts) => {
+    const executable = parts[0]?.split("/").at(-1);
+    if (executable !== "datadog-axi") return [];
+    const siteIndex = parts.indexOf("--site", 1);
+    const siteArg = siteIndex < 0 ? undefined : parts[siteIndex + 1];
+    const site = siteArg && /^[A-Za-z0-9.-]+$/.test(siteArg) ? siteArg : undefined;
+    const inlineSite = parts.slice(1).find((arg) => arg.startsWith("--site="))?.slice(7);
+    const selectedSite = site ?? (inlineSite && /^[A-Za-z0-9.-]+$/.test(inlineSite) ? inlineSite : undefined);
+    return [{
+      command: parts[1] && /^[a-z][a-z-]*$/.test(parts[1]) ? parts[1] : "home",
+      ...(selectedSite ? { site: selectedSite } : {}),
+    }];
+  });
+}
+
 function invocations(value: unknown): { command: string; site?: string }[] {
   if (Array.isArray(value)) return value.flatMap(invocations);
   if (value === null || typeof value !== "object") return [];
@@ -18,16 +58,7 @@ function invocations(value: unknown): { command: string; site?: string }[] {
   if (item.type === "tool_use") {
     const input = item.input;
     if (input && typeof input === "object" && typeof (input as Record<string, unknown>).command === "string") {
-      const line = (input as Record<string, string>).command;
-      if (!line) return [];
-      return [...line.matchAll(/(?:^|[;&|\s])(?:[^;&|\s]+\/)?datadog-axi(?![\w-])(?:\s+([a-z][a-z-]*))?/g)].map(
-        (match) => {
-          const end = line.slice(match.index + match[0].length).search(/[;&|]/);
-          const invocation = line.slice(match.index, end < 0 ? undefined : match.index + match[0].length + end);
-          const site = invocation.match(/(?:^|\s)--site(?:=|\s+)([A-Za-z0-9.-]+)/)?.[1];
-          return { command: match[1] ?? "home", ...(site ? { site } : {}) };
-        },
-      );
+      return commandInvocations((input as Record<string, string>).command);
     }
     return [];
   }
