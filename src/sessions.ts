@@ -3,7 +3,6 @@ import {
   closeSync,
   createReadStream,
   existsSync,
-  fstatSync,
   mkdirSync,
   openSync,
   readFileSync,
@@ -11,6 +10,7 @@ import {
   statSync,
   unlinkSync,
   writeFileSync,
+  writeSync,
 } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { createInterface } from "node:readline";
@@ -27,12 +27,20 @@ function sessionsPath(env: NodeJS.ProcessEnv): string {
   return configPath(env).replace(/config\.json$/, "sessions.json");
 }
 
-type Lock = { fd: number; dev: number; ino: number };
+type Lock = { fd: number; token: string };
 
-function unlinkLock(path: string, lock: Pick<Lock, "dev" | "ino">): void {
+function processIsAlive(pid: number): boolean {
   try {
-    const current = statSync(path);
-    if (current.dev === lock.dev && current.ino === lock.ino) unlinkSync(path);
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code !== "ESRCH";
+  }
+}
+
+export function releaseLock(path: string, token: string): void {
+  try {
+    if (readFileSync(path, "utf8") === token) unlinkSync(path);
   } catch {}
 }
 
@@ -46,13 +54,18 @@ async function acquireLock(path: string): Promise<Lock | undefined> {
       if ((error as NodeJS.ErrnoException).code !== "EEXIST") return undefined;
       try {
         const staleLock = statSync(path);
-        if (Date.now() - staleLock.mtimeMs > STALE_LOCK_MS) unlinkLock(path, staleLock);
+        if (Date.now() - staleLock.mtimeMs > STALE_LOCK_MS) {
+          const token = readFileSync(path, "utf8");
+          const pid = Number(token.split(":", 1)[0]);
+          if (Number.isSafeInteger(pid) && pid > 0 && !processIsAlive(pid)) releaseLock(path, token);
+        }
       } catch {}
       await new Promise((resolve) => setTimeout(resolve, 25));
       continue;
     }
-    const { dev, ino } = fstatSync(fd);
-    return { fd, dev, ino };
+    const token = `${process.pid}:${randomUUID()}`;
+    writeSync(fd, token);
+    return { fd, token };
   }
   return undefined;
 }
@@ -177,7 +190,7 @@ export async function recordSessionEnd(
       unlinkSync(temporaryPath);
     } catch {}
     closeSync(lock.fd);
-    unlinkLock(lockPath, lock);
+    releaseLock(lockPath, lock.token);
   }
 }
 

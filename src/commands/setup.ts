@@ -114,15 +114,18 @@ function hasClaudeSessionEndHook(path: string): boolean {
 
 function removeClaudeSessionEndHook(path: string): boolean {
   const { settings, hooks, groups } = claudeHookGroups(path);
-  const next = groups
-    .map((group) => ({
-      ...group,
-      hooks: Array.isArray(group.hooks)
-        ? group.hooks.filter((hook: { command?: string }) => hook.command !== sessionEndHookCommand())
-        : [],
-    }))
-    .filter((group) => (group.hooks as unknown[]).length > 0);
-  if (next.length === groups.length) return false;
+  let removed = false;
+  const command = sessionEndHookCommand();
+  const next = groups.flatMap((group) => {
+    if (!Array.isArray(group.hooks)) return [group];
+    const remaining = group.hooks.filter((hook: { command?: string }) => {
+      const matches = hook.command === command;
+      removed ||= matches;
+      return !matches;
+    });
+    return remaining.length === 0 && remaining.length !== group.hooks.length ? [] : [{ ...group, hooks: remaining }];
+  });
+  if (!removed) return false;
   if (next.length) hooks.SessionEnd = next;
   else delete hooks.SessionEnd;
   if (!Object.keys(hooks).length) delete settings.hooks;
