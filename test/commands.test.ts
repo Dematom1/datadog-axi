@@ -39,6 +39,41 @@ describe("home view", () => {
     );
   });
 
+  it("carries the selected org and site into every follow-up hint", async () => {
+    const fetch = fakeFetch({
+      "GET /api/v1/monitor/search": { body: fixture("monitor-search.json") },
+      "GET /api/v2/incidents/search": { body: fixture("incidents-search.json") },
+    });
+    const runtime = makeRuntime({
+      env: { DD_API_KEY: "a".repeat(32), DD_APP_KEY: "b".repeat(40), DD_SITE: "datadoghq.eu" },
+      config: {},
+      keychain: { get: async () => null, set: async () => {}, delete: async () => false },
+      fetch,
+    });
+    const { stdout, exitCode } = await run([], runtime);
+    expect(exitCode).toBe(0);
+    expect(stdout.match(/--site/g)).toHaveLength(3);
+    expect(stdout).toContain('\\"datadoghq.eu\\"');
+    expect(stdout).not.toContain("--org");
+  });
+
+  it("carries an explicitly selected org and site into every follow-up hint", async () => {
+    const fetch = fakeFetch({
+      "GET /api/v1/monitor/search": { body: fixture("monitor-search.json") },
+      "GET /api/v2/incidents/search": { body: fixture("incidents-search.json") },
+    });
+    const runtime = makeRuntime({
+      config: { orgs: { prod: { site: "datadoghq.eu" } } },
+      keys: { prod: { apiKey: "a".repeat(32), appKey: "b".repeat(40) } },
+      fetch,
+    });
+    const { stdout, exitCode } = await run(["home", "--org", "prod", "--site", "datadoghq.eu"], runtime);
+    expect(exitCode).toBe(0);
+    expect(stdout.match(/--org/g)).toHaveLength(3);
+    expect(stdout.match(/--site/g)).toHaveLength(3);
+    expect(stdout).toContain(JSON.stringify('--org "prod" --site "datadoghq.eu"').slice(1, -1));
+  });
+
   it("adds monitor counts, alerting monitors and open incidents", async () => {
     const search = fixture<{ monitors: unknown[] }>("monitor-search.json");
     const fetch = fakeFetch({
