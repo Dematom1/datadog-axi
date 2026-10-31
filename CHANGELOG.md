@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.5](https://github.com/Dematom1/datadog-axi/compare/datadog-axi-v0.1.4...datadog-axi-v0.1.5) (2026-10-31)
+
+
+### Bug Fixes
+
+* **cli:** show focused help for nested monitor view ([#23](https://github.com/Dematom1/datadog-axi/issues/23)) ([eff97cc](https://github.com/Dematom1/datadog-axi/commit/eff97ccc01f4fe37ba02d421e914f49ab673dc97))
+* encode string command results as TOON ([#24](https://github.com/Dematom1/datadog-axi/issues/24)) ([220f124](https://github.com/Dematom1/datadog-axi/commit/220f124a3ad7605cc16cff6aabb19bb4d4fb3f23))
+* **monitors:** preserve site in follow-up hints ([#22](https://github.com/Dematom1/datadog-axi/issues/22)) ([ba47601](https://github.com/Dematom1/datadog-axi/commit/ba47601867e03fbd7f77cb945a4addde233ed847))
+
 ## [0.1.4](https://github.com/Dematom1/datadog-axi/compare/datadog-axi-v0.1.3...datadog-axi-v0.1.4) (2026-10-30)
 
 
