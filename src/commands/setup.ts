@@ -54,7 +54,7 @@ export async function setupCommand(args: string[]): Promise<Record<string, unkno
     scope: bool(parsed, "--project") ? "project" : "user",
     onError: (message) => errors.push(message),
   });
-  installClaudeSessionEndHook(settingsPath);
+  if (!installClaudeSessionEndHook(settingsPath)) errors.push(`Could not safely update Claude settings at ${settingsPath}`);
   if (errors.length > 0) {
     throw new AxiError(`Hook installation reported problems: ${errors.join("; ")}`, "SETUP_FAILED", [
       "Fix the paths above, then re-run `datadog-axi setup hooks`",
@@ -132,9 +132,9 @@ function removeClaudeSessionEndHook(path: string): boolean {
   return true;
 }
 
-function installClaudeSessionEndHook(path: string): void {
+function installClaudeSessionEndHook(path: string): boolean {
   const settings = readClaudeSettings(path);
-  if (!settings) return;
+  if (!settings) return false;
   const hooks = settings.hooks && typeof settings.hooks === "object" ? (settings.hooks as Record<string, unknown>) : {};
   const groups = Array.isArray(hooks.SessionEnd) ? (hooks.SessionEnd as Array<Record<string, unknown>>) : [];
   const command = sessionEndHookCommand();
@@ -150,6 +150,7 @@ function installClaudeSessionEndHook(path: string): void {
   settings.hooks = hooks;
   mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
   writeFileSync(path, `${JSON.stringify(settings, null, 2)}\n`, { mode: 0o600 });
+  return true;
 }
 
 function resolveCliEntrypoint(): string {
