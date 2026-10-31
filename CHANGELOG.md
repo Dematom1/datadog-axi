@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.7](https://github.com/Dematom1/datadog-axi/compare/datadog-axi-v0.1.6...datadog-axi-v0.1.7) (2026-10-31)
+
+
+### Bug Fixes
+
+* **home:** preserve org and site in follow-up hints ([#29](https://github.com/Dematom1/datadog-axi/issues/29)) ([5f5c4d6](https://github.com/Dematom1/datadog-axi/commit/5f5c4d67c6b69cc29bd50e42a4ab85606fff1044))
+
 ## [0.1.6](https://github.com/Dematom1/datadog-axi/compare/datadog-axi-v0.1.5...datadog-axi-v0.1.6) (2026-10-31)
 
 
