@@ -21,11 +21,12 @@ describe("session memory", () => {
         }),
         JSON.stringify({ type: "tool_use", input: { command: "datadog-axi monitors view 123 --query PRIVATE_QUERY" } }),
         JSON.stringify({ type: "tool_use", input: { command: "datadog-axi monitors --query 'error:datadog-axi logs'" } }),
+        JSON.stringify({ type: "tool_use", input: { command: "datadog-axi monitors --query '--site evil.example'" } }),
       ].join("\n"),
     );
     await recordSessionEnd({ transcript_path: transcript }, env, "/work/project");
     const file = readFileSync(historyPath(env), "utf8");
-    expect(lastSession(env, "/work/project")).toMatchObject({ commands: { monitors: 3 }, site: "datadoghq.eu" });
+    expect(lastSession(env, "/work/project")).toMatchObject({ commands: { monitors: 4 }, site: "datadoghq.eu" });
     expect(lastSession(env, "/work/project")?.commands.logs).toBeUndefined();
     expect(file).not.toContain("TOP_SECRET");
     expect(file).not.toContain("PRIVATE_QUERY");

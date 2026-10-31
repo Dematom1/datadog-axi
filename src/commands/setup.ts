@@ -13,6 +13,9 @@ const HOOKS: CommandSpec = {
   },
 };
 
+const STATUS: CommandSpec = { name: "setup status", flags: {} };
+const UNINSTALL: CommandSpec = { name: "setup uninstall", flags: {} };
+
 export const SETUP_HELP = renderHelp({
   command: "setup",
   description: "Install or repair agent SessionStart hooks (Claude Code, Codex, OpenCode)",
@@ -22,6 +25,8 @@ export const SETUP_HELP = renderHelp({
       summary:
         "The hook runs `datadog-axi-ctx`: org, site and credential source from local config only; no keychain, no network",
     },
+    { spec: STATUS, summary: "Show whether the Claude Code SessionEnd hook is installed" },
+    { spec: UNINSTALL, summary: "Remove the Claude Code SessionEnd hook" },
   ],
   examples: ["datadog-axi setup hooks", "datadog-axi setup hooks --project"],
 });

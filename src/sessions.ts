@@ -12,13 +12,15 @@ function sessionsPath(env: NodeJS.ProcessEnv): string {
 }
 
 function commandInvocations(line: string): { command: string; site?: string }[] {
-  const commands: string[][] = [[]];
+  const commands: { value: string; quoted: boolean }[][] = [[]];
   let token = "";
   let quote = "";
+  let quoted = false;
   let escaped = false;
   const pushToken = () => {
-    if (token) commands[commands.length - 1].push(token);
+    if (token) commands[commands.length - 1].push({ value: token, quoted });
     token = "";
+    quoted = false;
   };
   for (const char of line) {
     if (escaped) {
@@ -28,7 +30,10 @@ function commandInvocations(line: string): { command: string; site?: string }[] 
     else if (quote) {
       if (char === quote) quote = "";
       else token += char;
-    } else if (char === "'" || char === '"') quote = char;
+    } else if (char === "'" || char === '"') {
+      quote = char;
+      quoted = true;
+    }
     else if (/[;&|]/.test(char)) {
       pushToken();
       if (commands[commands.length - 1].length) commands.push([]);
@@ -37,15 +42,16 @@ function commandInvocations(line: string): { command: string; site?: string }[] 
   }
   pushToken();
   return commands.flatMap((parts) => {
-    const executable = parts[0]?.split("/").at(-1);
+    const executable = parts[0]?.value.split("/").at(-1);
     if (executable !== "datadog-axi") return [];
-    const siteIndex = parts.indexOf("--site", 1);
-    const siteArg = siteIndex < 0 ? undefined : parts[siteIndex + 1];
+    const siteIndex = parts.findIndex((part, index) => index > 0 && !part.quoted && part.value === "--site");
+    const siteArg = siteIndex < 0 ? undefined : parts[siteIndex + 1]?.value;
     const site = siteArg && /^[A-Za-z0-9.-]+$/.test(siteArg) ? siteArg : undefined;
-    const inlineSite = parts.slice(1).find((arg) => arg.startsWith("--site="))?.slice(7);
+    const inlineSite = parts.slice(1).find((part) => !part.quoted && part.value.startsWith("--site="))?.value.slice(7);
     const selectedSite = site ?? (inlineSite && /^[A-Za-z0-9.-]+$/.test(inlineSite) ? inlineSite : undefined);
+    const subcommand = parts[1]?.value;
     return [{
-      command: parts[1] && /^[a-z][a-z-]*$/.test(parts[1]) ? parts[1] : "home",
+      command: subcommand && /^[a-z][a-z-]*$/.test(subcommand) ? subcommand : "home",
       ...(selectedSite ? { site: selectedSite } : {}),
     }];
   });
