@@ -163,8 +163,8 @@ describe("monitors", () => {
       },
     });
     const { stdout } = await run(["monitors", "--site", "datadoghq.eu"], makeRuntime({ env: ENV_KEYS, fetch }));
-    expect(stdout).toContain("monitors view <id> --site \\\"datadoghq.eu\\\"");
-    expect(stdout).toContain("monitors --status alert --site \\\"datadoghq.eu\\\"");
+    expect(stdout).toContain('monitors view <id> --site \\"datadoghq.eu\\"');
+    expect(stdout).toContain('monitors --status alert --site \\"datadoghq.eu\\"');
   });
 
   it("shows every monitor tag with --full and reports omitted tags otherwise", async () => {
