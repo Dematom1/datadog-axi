@@ -98,6 +98,18 @@ describe("ctx", () => {
 });
 
 describe("monitors", () => {
+  it("shows focused view help with only its flags and examples", async () => {
+    const { stdout, exitCode } = await run(["monitors", "view", "--help"], makeRuntime());
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("command: monitors view");
+    expect(stdout).toContain("flags{monitors view}:");
+    expect(stdout).toContain("--full: Untruncated message, every non-OK group and every tag");
+    expect(stdout).toContain("flags{target}:");
+    expect(stdout).toContain("examples[3]:");
+    expect(stdout).not.toContain("--status");
+    expect(stdout).not.toContain("monitors search");
+  });
+
   it("searches problems first with counts, total and a next-page hint", async () => {
     const fetch = fakeFetch({ "GET /api/v1/monitor/search": { body: fixture("monitor-search.json") } });
     const { stdout, exitCode } = await run(

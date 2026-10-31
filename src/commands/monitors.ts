@@ -134,6 +134,17 @@ export const MONITORS_HELP = renderHelp({
   ],
 });
 
+export const MONITORS_VIEW_HELP = renderHelp({
+  command: "monitors view",
+  description: "View one monitor's query, message, tags and non-OK groups",
+  subcommands: [{ spec: VIEW, summary: "Show one monitor by ID" }],
+  examples: [
+    "datadog-axi monitors view 12345",
+    "datadog-axi monitors view 12345 --full",
+    "datadog-axi monitors view 12345 --site datadoghq.eu",
+  ],
+});
+
 export async function monitorsCommand(args: string[], rt: Runtime): Promise<Record<string, unknown>> {
   const { sub, rest } = splitSubcommand("monitors", args, ["search", "view"], "search");
   return sub === "view" ? view(rest, rt) : search(rest, rt);
