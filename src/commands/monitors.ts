@@ -4,7 +4,6 @@ import { renderHelp } from "../help.js";
 import {
   DETAIL_TEXT_LIMIT,
   iso,
-  orgSuffix,
   targetSuffix,
   project,
   rebuildCommand,
