@@ -9,7 +9,7 @@ export function renderHelpBlock(lines: string[]): string {
 
 export function renderResult(result: Record<string, unknown> | string): string {
   if (typeof result === "string") {
-    return result;
+    return encode({ result });
   }
   const { help, ...rest } = result;
   const blocks = Object.keys(rest).length > 0 ? [encode(rest)] : [];

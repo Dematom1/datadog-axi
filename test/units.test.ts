@@ -36,6 +36,12 @@ const SPEC: CommandSpec = {
 };
 
 describe("TOON help output", () => {
+  it("encodes string command results as decodable TOON data", () => {
+    expect(decode(renderResult("request: GET /api/v1/monitor\nresponse: id,name\n1,checkout"))).toEqual({
+      result: "request: GET /api/v1/monitor\nresponse: id,name\n1,checkout",
+    });
+  });
+
   it("decodes full hinted success output", () => {
     expect(decode(renderResult({ result: "ok", help: ["try this", "then this"] }))).toEqual({
       result: "ok",
