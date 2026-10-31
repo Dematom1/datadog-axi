@@ -47,7 +47,7 @@ describe("home view", () => {
     const runtime = makeRuntime({
       env: { DD_API_KEY: "a".repeat(32), DD_APP_KEY: "b".repeat(40), DD_SITE: "datadoghq.eu" },
       config: {},
-      keychain: { get: async () => null, set: async () => {}, delete: async () => {} },
+      keychain: { get: async () => null, set: async () => {}, delete: async () => false },
       fetch,
     });
     const { stdout, exitCode } = await run([], runtime);
