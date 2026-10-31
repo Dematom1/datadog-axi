@@ -4,11 +4,11 @@
   <a href="https://www.npmjs.com/package/datadog-axi"><img alt="npm" src="https://img.shields.io/npm/v/datadog-axi?style=flat-square" /></a>
   <a href="https://github.com/Dematom1/datadog-axi/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/Dematom1/datadog-axi/ci.yml?style=flat-square&label=ci" /></a>
   <a href="https://github.com/Dematom1/datadog-axi/actions/workflows/release-please.yml"><img alt="Release" src="https://img.shields.io/github/actions/workflow/status/Dematom1/datadog-axi/release-please.yml?style=flat-square&label=release" /></a>
-  <a href="https://img.shields.io/badge/platform-Linux-blue?style=flat-square"><img alt="Platform" src="https://img.shields.io/badge/platform-Linux-blue?style=flat-square" /></a>
+  <a href="https://img.shields.io/badge/platform-Linux%20%7C%20macOS-blue?style=flat-square"><img alt="Platform" src="https://img.shields.io/badge/platform-Linux%20%7C%20macOS-blue?style=flat-square" /></a>
   <a href="https://x.com/dematom1"><img alt="X" src="https://img.shields.io/badge/X-@dematom1-black?style=flat-square" /></a>
 </p>
 
-Read-first Datadog for agents. `datadog-axi` is an [AXI](https://github.com/kunchenguid/axi) CLI: it calls the Datadog REST API directly and prints compact [TOON](https://toonformat.dev/) built for agents. That means problems first, a few columns per row, totals, explicit empty states, and next-step hints.
+Read-first Datadog for agents. `datadog-axi` is an [AXI](https://github.com/kunchenguid/axi) CLI: it calls the Datadog REST API directly and prints compact [TOON](https://toonformat.dev/) built for agents. That means problems first, a few columns per row, totals, explicit empty states, and next-step hints. CI tests Linux and macOS; Windows is not currently supported (POSIX-only file permission handling and session-history path handling are not yet portable).
 
 ```sh
 $ datadog-axi
