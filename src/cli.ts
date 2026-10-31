@@ -11,7 +11,7 @@ import { HOSTS_HELP, hostsCommand } from "./commands/hosts.js";
 import { INCIDENTS_HELP, incidentsCommand } from "./commands/incidents.js";
 import { LOGS_HELP, logsCommand } from "./commands/logs.js";
 import { METRICS_HELP, metricsCommand } from "./commands/metrics.js";
-import { MONITORS_HELP, monitorsCommand } from "./commands/monitors.js";
+import { MONITORS_HELP, MONITORS_VIEW_HELP, monitorsCommand } from "./commands/monitors.js";
 import { NOTEBOOKS_HELP, notebooksCommand } from "./commands/notebooks.js";
 import { SERVICES_HELP, servicesCommand } from "./commands/services.js";
 import { SETUP_HELP, setupCommand } from "./commands/setup.js";
@@ -118,6 +118,12 @@ export interface MainOptions {
 }
 
 export async function main(options: MainOptions = {}): Promise<void> {
+  const argv = options.argv ?? process.argv.slice(2);
+  if (argv[0] === "monitors" && argv[1] === "view" && argv.includes("--help")) {
+    (options.stdout ?? process.stdout).write(MONITORS_VIEW_HELP);
+    return;
+  }
+
   const commands: Record<string, AxiCliCommand<Runtime>> = {};
   for (const [name, handler] of Object.entries(HANDLERS)) {
     commands[name] = async (args, rt) => renderResult(await handler(args, rt as Runtime));
@@ -126,7 +132,7 @@ export async function main(options: MainOptions = {}): Promise<void> {
   await runAxiCli<Runtime>({
     description: DESCRIPTION,
     version: VERSION,
-    argv: options.argv ?? process.argv.slice(2),
+    argv,
     stdout: options.stdout,
     topLevelHelp: TOP_HELP,
     commands,
