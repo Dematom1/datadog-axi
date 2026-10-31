@@ -21,6 +21,7 @@ import { TRACES_HELP, tracesCommand } from "./commands/traces.js";
 import { formatError, renderResult } from "./output.js";
 import { defaultRuntime, type Runtime } from "./runtime.js";
 import { VERSION } from "./version.js";
+import { contextEndCommand } from "./sessions.js";
 
 export const DESCRIPTION =
   "Read-first Datadog for agents: monitors, logs, metrics, traces, incidents and more as compact TOON, straight from the Datadog API";
@@ -119,6 +120,10 @@ export interface MainOptions {
 
 export async function main(options: MainOptions = {}): Promise<void> {
   const argv = options.argv ?? process.argv.slice(2);
+  if (argv[0] === "context" && argv[1] === "end") {
+    (options.stdout ?? process.stdout).write(await contextEndCommand());
+    return;
+  }
   if (argv[0] === "monitors" && argv[1] === "view" && argv.includes("--help")) {
     (options.stdout ?? process.stdout).write(MONITORS_VIEW_HELP);
     return;

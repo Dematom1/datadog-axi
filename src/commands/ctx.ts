@@ -7,6 +7,7 @@ import { readConfig, type Runtime } from "../runtime.js";
 import { regionOf } from "../sites.js";
 import { describeTarget, type TargetInput } from "../target.js";
 import { VERSION } from "../version.js";
+import { lastSession } from "../sessions.js";
 
 /**
  * Offline context (S17, D-c18): org, site, credential source, write status,
@@ -66,7 +67,8 @@ export async function ctxCommand(args: string[], rt: Runtime): Promise<Record<st
           "Run `datadog-axi auth guide --site <site>` for both setup routes (pup login or keys)",
         ]
       : ["Run `datadog-axi` for live monitor and incident state", "Run `datadog-axi auth list` to see stored orgs"];
-  return { ctx, help: hints };
+  const session = lastSession(rt.env);
+  return { ctx, ...(session ? { last_session: session } : {}), help: hints };
 }
 
 /** Entry for the `datadog-axi-ctx` hook binary. Never throws, never exits non-zero. */
