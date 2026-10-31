@@ -66,13 +66,18 @@ export async function setupCommand(args: string[]): Promise<Record<string, unkno
   };
 }
 
-/** The hook points at the ctx entrypoint, not this process's main bin. */
-function readClaudeSettings(path: string): Record<string, unknown> {
+function readClaudeSettings(path: string): Record<string, unknown> | undefined {
   try {
     const value: unknown = JSON.parse(readFileSync(path, "utf8"));
-    return value && typeof value === "object" && !Array.isArray(value) ? Object.fromEntries(Object.entries(value)) : {};
+    if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+    const settings = Object.fromEntries(Object.entries(value));
+    if ("hooks" in settings && (!settings.hooks || typeof settings.hooks !== "object" || Array.isArray(settings.hooks)))
+      return undefined;
+    const hooks = settings.hooks as Record<string, unknown> | undefined;
+    if (hooks && "SessionEnd" in hooks && !Array.isArray(hooks.SessionEnd)) return undefined;
+    return settings;
   } catch {
-    return {};
+    return existsSync(path) ? undefined : {};
   }
 }
 
@@ -81,7 +86,7 @@ function claudeHookGroups(path: string): {
   hooks: Record<string, unknown>;
   groups: Array<Record<string, unknown>>;
 } {
-  const settings = readClaudeSettings(path);
+  const settings = readClaudeSettings(path) ?? {};
   const hooks = settings.hooks && typeof settings.hooks === "object" ? (settings.hooks as Record<string, unknown>) : {};
   return {
     settings,
@@ -119,17 +124,11 @@ function removeClaudeSessionEndHook(path: string): boolean {
 }
 
 function installClaudeSessionEndHook(path: string): void {
-  let settings: Record<string, unknown> = {};
-  try {
-    const value: unknown = JSON.parse(readFileSync(path, "utf8"));
-    if (value && typeof value === "object" && !Array.isArray(value))
-      settings = Object.fromEntries(Object.entries(value));
-  } catch {
-    /* New settings file. */
-  }
+  const settings = readClaudeSettings(path);
+  if (!settings) return;
   const hooks = settings.hooks && typeof settings.hooks === "object" ? (settings.hooks as Record<string, unknown>) : {};
   const groups = Array.isArray(hooks.SessionEnd) ? (hooks.SessionEnd as Array<Record<string, unknown>>) : [];
-  const command = `${resolveCtxEntrypoint()} context end`;
+  const command = `${resolveCliEntrypoint()} context end`;
   if (
     !groups.some(
       (group) =>
@@ -142,6 +141,12 @@ function installClaudeSessionEndHook(path: string): void {
   settings.hooks = hooks;
   mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
   writeFileSync(path, `${JSON.stringify(settings, null, 2)}\n`, { mode: 0o600 });
+}
+
+function resolveCliEntrypoint(): string {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const compiled = join(here, "..", "..", "bin", "datadog-axi.js");
+  return existsSync(compiled) ? compiled : join(here, "..", "..", "bin", "datadog-axi.ts");
 }
 
 function resolveCtxEntrypoint(): string {
