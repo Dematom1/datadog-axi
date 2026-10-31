@@ -4,7 +4,6 @@ import { renderHelp } from "../help.js";
 import {
   DETAIL_TEXT_LIMIT,
   iso,
-  orgSuffix,
   targetSuffix,
   project,
   rebuildCommand,
@@ -219,7 +218,7 @@ async function search(args: string[], rt: Runtime): Promise<Record<string, unkno
   const data = parseMonitorSearchResponse(rawData);
   const monitors = sortProblemsFirst(data.monitors);
   const total = data.metadata?.total_count;
-  const org = targetSuffix(seam.target);
+  const target = targetSuffix(seam.target);
   const site = seam.target.site;
 
   if (monitors.length === 0) {
@@ -239,7 +238,7 @@ async function search(args: string[], rt: Runtime): Promise<Record<string, unkno
         : query
           ? [
               "Drop a filter (`--status`, `--tag`, `--name`) to widen the search",
-              `Run \`datadog-axi monitors${org}\` to list every monitor with status counts`,
+              `Run \`datadog-axi monitors${target}\` to list every monitor with status counts`,
             ]
           : [
               `This org has no monitors on site ${site}; if you expected some, check the site with \`datadog-axi ctx\``,
@@ -248,14 +247,14 @@ async function search(args: string[], rt: Runtime): Promise<Record<string, unkno
     );
   }
 
-  const hints = [`Run \`datadog-axi monitors view <id>${org}\` for the query, message and failing groups`];
+  const hints = [`Run \`datadog-axi monitors view <id>${target}\` for the query, message and failing groups`];
   if (total !== undefined && total > (page + 1) * limit) {
     hints.push(
       `Run \`${rebuildCommand("datadog-axi monitors search", args, ["--page"])} --page ${page + 1}\` for the next ${limit}`,
     );
   }
   if (!list(parsed, "--status").length && monitors.some((m) => (m.status ?? "").toLowerCase() === "alert")) {
-    hints.push(`Run \`datadog-axi monitors --status alert${org}\` to see only alerting monitors`);
+    hints.push(`Run \`datadog-axi monitors --status alert${target}\` to see only alerting monitors`);
   }
 
   return withHelp(
@@ -341,7 +340,7 @@ async function view(args: string[], rt: Runtime): Promise<Record<string, unknown
   const hints: string[] = [];
   if (message.truncated || sortedGroups.length > groupLimit || (!full && tags.length > 50)) {
     hints.push(
-      `Run \`datadog-axi monitors view ${id}${orgSuffix(seam.target)} --full\` for the complete message and groups${!full && tags.length > 50 ? `; ${tags.length - 50} tags omitted` : ""}`,
+      `Run \`datadog-axi monitors view ${id}${targetSuffix(seam.target)} --full\` for the complete message and groups${!full && tags.length > 50 ? `; ${tags.length - 50} tags omitted` : ""}`,
     );
   }
   return withHelp(output, hints);
