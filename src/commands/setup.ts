@@ -54,7 +54,8 @@ export async function setupCommand(args: string[]): Promise<Record<string, unkno
     scope: bool(parsed, "--project") ? "project" : "user",
     onError: (message) => errors.push(message),
   });
-  if (!installClaudeSessionEndHook(settingsPath)) errors.push(`Could not safely update Claude settings at ${settingsPath}`);
+  if (!installClaudeSessionEndHook(settingsPath))
+    errors.push(`Could not safely update Claude settings at ${settingsPath}`);
   if (errors.length > 0) {
     throw new AxiError(`Hook installation reported problems: ${errors.join("; ")}`, "SETUP_FAILED", [
       "Fix the paths above, then re-run `datadog-axi setup hooks`",
@@ -107,8 +108,7 @@ function sessionEndHookCommand(): string {
 function hasClaudeSessionEndHook(path: string): boolean {
   const command = sessionEndHookCommand();
   return claudeHookGroups(path).groups.some(
-    (group) =>
-      Array.isArray(group.hooks) && group.hooks.some((hook: { command?: string }) => hook.command === command),
+    (group) => Array.isArray(group.hooks) && group.hooks.some((hook: { command?: string }) => hook.command === command),
   );
 }
 

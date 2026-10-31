@@ -37,7 +37,10 @@ describe("session memory", () => {
           input: { command: "datadog-axi monitors --site datadoghq.eu --api-key TOP_SECRET" },
         }),
         JSON.stringify({ type: "tool_use", input: { command: "datadog-axi monitors view 123 --query PRIVATE_QUERY" } }),
-        JSON.stringify({ type: "tool_use", input: { command: "datadog-axi monitors --query 'error:datadog-axi logs'" } }),
+        JSON.stringify({
+          type: "tool_use",
+          input: { command: "datadog-axi monitors --query 'error:datadog-axi logs'" },
+        }),
         JSON.stringify({ type: "tool_use", input: { command: "datadog-axi monitors --query '--site evil.example'" } }),
       ].join("\n"),
     );
@@ -54,9 +57,10 @@ describe("session memory", () => {
     const home = mkdtempSync(join(tmpdir(), "datadog-axi-session-"));
     const transcript = join(home, "transcript.jsonl");
     writeFileSync(transcript, JSON.stringify({ type: "tool_use", input: { command: "datadog-axi monitors" } }));
-    const run = (cwd: string) => runContextEnd(cwd, home, transcript).then((code) => {
-      if (code !== 0) throw new Error(`context end exited ${code}`);
-    });
+    const run = (cwd: string) =>
+      runContextEnd(cwd, home, transcript).then((code) => {
+        if (code !== 0) throw new Error(`context end exited ${code}`);
+      });
     const first = join(home, "first");
     const second = join(home, "second");
     mkdirSync(first);

@@ -41,7 +41,9 @@ function processIsAlive(pid: number): boolean {
 export function releaseLock(path: string, token: string): void {
   try {
     if (readFileSync(path, "utf8") === token) unlinkSync(path);
-  } catch {}
+  } catch {
+    // Lock may already have been removed.
+  }
 }
 
 async function acquireLock(path: string): Promise<Lock | undefined> {
@@ -59,7 +61,9 @@ async function acquireLock(path: string): Promise<Lock | undefined> {
           const pid = Number(token.split(":", 1)[0]);
           if (Number.isSafeInteger(pid) && pid > 0 && !processIsAlive(pid)) releaseLock(path, token);
         }
-      } catch {}
+      } catch {
+        // Lock may have disappeared while checking staleness.
+      }
       await new Promise((resolve) => setTimeout(resolve, 25));
       continue;
     }
@@ -92,8 +96,7 @@ function commandInvocations(line: string): { command: string; site?: string }[] 
     } else if (char === "'" || char === '"') {
       quote = char;
       quoted = true;
-    }
-    else if (/[;&|]/.test(char)) {
+    } else if (/[;&|]/.test(char)) {
       pushToken();
       if (commands[commands.length - 1]?.length) commands.push([]);
     } else if (/\s/.test(char)) pushToken();
@@ -106,13 +109,18 @@ function commandInvocations(line: string): { command: string; site?: string }[] 
     const siteIndex = parts.findIndex((part, index) => index > 0 && !part.quoted && part.value === "--site");
     const siteArg = siteIndex < 0 ? undefined : parts[siteIndex + 1]?.value;
     const site = siteArg && /^[A-Za-z0-9.-]+$/.test(siteArg) ? siteArg : undefined;
-    const inlineSite = parts.slice(1).find((part) => !part.quoted && part.value.startsWith("--site="))?.value.slice(7);
+    const inlineSite = parts
+      .slice(1)
+      .find((part) => !part.quoted && part.value.startsWith("--site="))
+      ?.value.slice(7);
     const selectedSite = site ?? (inlineSite && /^[A-Za-z0-9.-]+$/.test(inlineSite) ? inlineSite : undefined);
     const subcommand = parts[1]?.value;
-    return [{
-      command: subcommand && /^[a-z][a-z-]*$/.test(subcommand) ? subcommand : "home",
-      ...(selectedSite ? { site: selectedSite } : {}),
-    }];
+    return [
+      {
+        command: subcommand && /^[a-z][a-z-]*$/.test(subcommand) ? subcommand : "home",
+        ...(selectedSite ? { site: selectedSite } : {}),
+      },
+    ];
   });
 }
 
@@ -189,7 +197,9 @@ export async function recordSessionEnd(
   } finally {
     try {
       unlinkSync(temporaryPath);
-    } catch {}
+    } catch {
+      // Temp file may already have been renamed.
+    }
     closeSync(lock.fd);
     releaseLock(lockPath, lock.token);
   }
