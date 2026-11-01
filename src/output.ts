@@ -21,9 +21,28 @@ export function renderResult(result: Record<string, unknown> | string): string {
 
 export function formatError(error: unknown): { output: string; exitCode: number } {
   if (error instanceof AxiError) {
+    const manual =
+      error.code === "MANUAL_UPDATE_REQUIRED"
+        ? (error as AxiError & {
+            action: string;
+            manager: string;
+            path: string;
+            instruction: string;
+          })
+        : undefined;
     return {
-      output: `${renderResult({ error: error.message, code: error.code, help: error.suggestions })}\n`,
-      exitCode: exitCodeForError(error),
+      output: `${renderResult({
+        error: error.message,
+        code: error.code,
+        ...(manual && {
+          action: manual.action,
+          manager: manual.manager,
+          path: manual.path,
+          instruction: manual.instruction,
+        }),
+        help: error.suggestions,
+      })}\n`,
+      exitCode: manual ? 2 : exitCodeForError(error),
     };
   }
   const message = error instanceof Error ? error.message : String(error);

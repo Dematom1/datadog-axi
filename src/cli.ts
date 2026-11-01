@@ -176,15 +176,12 @@ export async function updateCommand(
       ...(available ? { help: [manual ? plan.note : `Run ${plan.note} to upgrade`] } : {}),
     };
   if (!plan.command || !plan.argv)
-    return {
-      update: {
-        ...update,
-        result: "not updated",
-        action: "manual",
-        instruction: plan.note,
-        note: `Nothing was updated. ${plan.note}`,
-      },
-    };
+    throw Object.assign(new AxiError(`Nothing was updated. ${plan.note}`, "MANUAL_UPDATE_REQUIRED"), {
+      action: "manual",
+      manager: plan.manager,
+      path: realPath,
+      instruction: plan.note,
+    });
   if (!available)
     return { update: { ...update, action: "current", note: `${packageName} is already on the latest version` } };
   try {

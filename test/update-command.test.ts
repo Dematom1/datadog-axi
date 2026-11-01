@@ -1,6 +1,7 @@
 import { AxiError } from "axi-sdk-js";
 import { describe, expect, it, vi } from "vitest";
 import { updateCommand } from "../src/cli.js";
+import { formatError } from "../src/output.js";
 import type { UpdateProbe } from "../src/update-manager.js";
 import type { UpdateCommandDependencies } from "../src/cli.js";
 
@@ -66,9 +67,11 @@ describe("update command", () => {
       help: [expect.stringContaining("Nix config/flake and rebuild")],
     });
     expect(execute).not.toHaveBeenCalled();
-    expect(await updateCommand([], deps({ entry: "/nix/store/hash/cli.js", env: {}, execute }))).toMatchObject({
-      update: { action: "manual", manager: "nix" },
-    });
+    const error = await updateCommand([], deps({ entry: "/nix/store/hash/cli.js", env: {}, execute })).catch(
+      (error) => error,
+    );
+    expect(error).toMatchObject({ code: "MANUAL_UPDATE_REQUIRED", action: "manual", manager: "nix" });
+    expect(formatError(error)).toMatchObject({ exitCode: 2 });
   });
 
   it("makes every unsupported update explicit in update and --check output", async () => {
@@ -120,21 +123,35 @@ describe("update command", () => {
     for (const row of rows) {
       const execute = vi.fn();
       const options = { ...row, execute, fetchLatest: async () => "0.1.8" };
-      for (const args of [[], ["--check"]]) {
-        const result = await updateCommand(args, deps(options));
-        expect(result).toMatchObject({
-          update: {
-            result: "not updated",
-            action: "manual",
-            manager: row.manager,
-            path: row.entry,
-            instruction: expect.any(String),
-            note: expect.stringContaining("Nothing was updated."),
-          },
-        });
-        const text = JSON.stringify(result).toLowerCase();
-        expect(text).not.toMatch(/successfully|already on the latest|upgraded/);
-      }
+      const check = await updateCommand(["--check"], deps(options));
+      expect(check).toMatchObject({
+        update: {
+          result: "not updated",
+          action: "manual",
+          manager: row.manager,
+          path: row.entry,
+          instruction: expect.any(String),
+          note: expect.stringContaining("Nothing was updated."),
+        },
+      });
+      const checkText = JSON.stringify(check).toLowerCase();
+      expect(checkText).not.toMatch(/successfully|already on the latest|upgraded/);
+
+      const error = await updateCommand([], deps(options)).catch((error) => error);
+      expect(error).toMatchObject({
+        code: "MANUAL_UPDATE_REQUIRED",
+        action: "manual",
+        manager: row.manager,
+        path: row.entry,
+        instruction: expect.any(String),
+      });
+      const rendered = formatError(error);
+      expect(rendered.exitCode).toBe(2);
+      expect(rendered.output).toContain("Nothing was updated.");
+      expect(rendered.output).toContain(`manager: ${row.manager}`);
+      expect(rendered.output).toContain(`path: ${row.entry}`);
+      expect(rendered.output).toContain((error as AxiError & { instruction: string }).instruction);
+      expect(rendered.output.toLowerCase()).not.toMatch(/successfully|already on the latest|upgraded/);
       expect(execute).not.toHaveBeenCalled();
     }
   });
