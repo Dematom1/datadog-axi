@@ -187,6 +187,9 @@ export function classify(
             : ["bun", "add", "-g", "datadog-axi@latest"];
       return { manager, instruction: command.join(" "), command };
     }
+  const projectNodeModules = path.match(/^(.*)\/node_modules\/datadog-axi\//)?.[1];
+  if (projectNodeModules && probe.read(join(projectNodeModules, "package.json")))
+    return refuse("project-local", "Update datadog-axi in package.json");
   let dir = dirname(path);
   while (dir !== dirname(dir)) {
     const pkg = probe.read(join(dir, "package.json"));
