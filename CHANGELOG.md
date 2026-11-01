@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.8](https://github.com/Dematom1/datadog-axi/compare/datadog-axi-v0.1.7...datadog-axi-v0.1.8) (2026-11-01)
+
+
+### Bug Fixes
+
+* **home:** report unknown incident totals as unavailable ([#32](https://github.com/Dematom1/datadog-axi/issues/32)) ([3bce2e6](https://github.com/Dematom1/datadog-axi/commit/3bce2e61ac270d178c97d234db543e88d66c7505))
+
 ## [0.1.7](https://github.com/Dematom1/datadog-axi/compare/datadog-axi-v0.1.6...datadog-axi-v0.1.7) (2026-10-31)
 
 
