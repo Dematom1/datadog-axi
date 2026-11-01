@@ -161,6 +161,7 @@ Errors are printed on stdout as `error`, `code` and `help`. Exit code 0 means su
 | `UPSTREAM_ERROR`                                         | Any other Datadog server error                                                                       |
 | `REFUSED`                                                | A write, credential or unregistered request                                                          |
 | `WRONG_SITE`                                             | `--site` disagrees with the org's pinned site                                                        |
+| `UPDATE_ERROR`                                           | The matching installer failed or the installed copy did not reach the latest version                 |
 | `CONFIG_INVALID`, `KEYCHAIN_UNAVAILABLE`, `SETUP_FAILED` | Local problems                                                                                       |
 
 ## Safety model
