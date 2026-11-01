@@ -1,6 +1,6 @@
 {
   "name": "datadog-axi",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Read-first Datadog CLI for agents - AXI-compliant, token-efficient TOON output over the Datadog REST API",
   "type": "module",
   "license": "MIT",
