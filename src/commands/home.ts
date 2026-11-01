@@ -117,12 +117,21 @@ export async function homeCommand(rt: Runtime, args: string[] = []): Promise<Rec
   if (incidents.status === "fulfilled") {
     const response: unknown = incidents.value.data;
     const total =
-      response && typeof response === "object" && "data" in response && response.data && typeof response.data === "object" &&
-      "attributes" in response.data && response.data.attributes && typeof response.data.attributes === "object" &&
+      response &&
+      typeof response === "object" &&
+      "data" in response &&
+      response.data &&
+      typeof response.data === "object" &&
+      "attributes" in response.data &&
+      response.data.attributes &&
+      typeof response.data.attributes === "object" &&
       "total" in response.data.attributes
         ? response.data.attributes.total
         : undefined;
-    output.incidents = typeof total === "number" && Number.isFinite(total) ? `${total} open` : "unavailable - total unknown";
+    output.incidents =
+      typeof total === "number" && Number.isInteger(total) && total >= 0 && total <= 2_147_483_647
+        ? `${total} open`
+        : "unavailable - total unknown";
   } else {
     output.incidents = `unavailable - ${reason(incidents.reason)}`;
   }

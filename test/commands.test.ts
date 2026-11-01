@@ -94,7 +94,7 @@ describe("home view", () => {
   });
 
   it("reports missing and malformed incident totals as unavailable but preserves a real zero", async () => {
-    for (const total of [undefined, "0", null]) {
+    for (const total of [undefined, "0", null, 1.5, -1, 2_147_483_648]) {
       const body = total === undefined ? { data: { attributes: {} } } : { data: { attributes: { total } } };
       const fetch = fakeFetch({
         "GET /api/v1/monitor/search": { body: fixture("monitor-search.json") },

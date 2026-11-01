@@ -1,4 +1,13 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, utimesSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  statSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
 import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -61,10 +70,12 @@ describe("session memory", () => {
       runContextEnd(cwd, home, transcript).then((code) => {
         if (code !== 0) throw new Error(`context end exited ${code}`);
       });
-    const first = join(home, "first");
-    const second = join(home, "second");
-    mkdirSync(first);
-    mkdirSync(second);
+    const firstDir = join(home, "first");
+    const secondDir = join(home, "second");
+    mkdirSync(firstDir);
+    mkdirSync(secondDir);
+    const first = realpathSync(firstDir);
+    const second = realpathSync(secondDir);
     await Promise.all([run(first), run(second)]);
     expect(lastSession({ HOME: home }, first)?.commands.monitors).toBe(1);
     expect(lastSession({ HOME: home }, second)?.commands.monitors).toBe(1);
