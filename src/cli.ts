@@ -1,4 +1,7 @@
-import { runAxiCli, type AxiCliCommand } from "axi-sdk-js";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { AxiError, fetchLatestVersion, isUpdateAvailable, runAxiCli, type AxiCliCommand } from "axi-sdk-js";
+import { classify, realRunningPath } from "./update-manager.js";
 import { API_HELP, apiCommand } from "./commands/api.js";
 import { AUTH_HELP, authCommand } from "./commands/auth.js";
 import { CTX_HELP, ctxCommand } from "./commands/ctx.js";
@@ -22,6 +25,8 @@ import { formatError, renderResult } from "./output.js";
 import { defaultRuntime, type Runtime } from "./runtime.js";
 import { VERSION } from "./version.js";
 import { contextEndCommand } from "./sessions.js";
+
+const execFileAsync = promisify(execFile);
 
 export const DESCRIPTION =
   "Read-first Datadog for agents: monitors, logs, metrics, traces, incidents and more as compact TOON, straight from the Datadog API";
@@ -119,6 +124,46 @@ export interface MainOptions {
   stdout?: { write: (chunk: string) => unknown };
 }
 
+async function updateCommand(args: string[]): Promise<Record<string, unknown>> {
+  if (args.length > 1 || (args.length === 1 && args[0] !== "--check")) {
+    throw new AxiError("Use update [--check]", "VALIDATION_ERROR");
+  }
+  const realPath = realRunningPath();
+  const install = classify(realPath, process.env);
+  const check = args[0] === "--check";
+  if (!check && !install.command)
+    return { update: { manager: install.manager, realPath, action: "manual", instruction: install.instruction } };
+  const latest = await fetchLatestVersion("datadog-axi");
+  const available = isUpdateAvailable(VERSION, latest);
+  if (check)
+    return {
+      update: {
+        package: "datadog-axi",
+        current: VERSION,
+        latest,
+        available,
+        manager: install.manager,
+        realPath,
+        instruction: install.instruction,
+      },
+      ...(available ? { help: [install.instruction] } : {}),
+    };
+  if (!available)
+    return { update: `datadog-axi is already on the latest version (${VERSION})`, manager: install.manager, realPath };
+  const [command, ...argv] = install.command ?? [];
+  if (!command)
+    return { update: { manager: install.manager, realPath, action: "manual", instruction: install.instruction } };
+  try {
+    await execFileAsync(command, argv);
+  } catch (error) {
+    throw new AxiError(
+      `${install.instruction} failed: ${error instanceof Error ? error.message : String(error)}`,
+      "UPDATE_ERROR",
+    );
+  }
+  return { update: "datadog-axi upgraded", manager: install.manager, realPath };
+}
+
 export async function main(options: MainOptions = {}): Promise<void> {
   const argv = options.argv ?? process.argv.slice(2);
   if (argv[0] === "context" && argv[1] === "end") {
@@ -134,6 +179,7 @@ export async function main(options: MainOptions = {}): Promise<void> {
   for (const [name, handler] of Object.entries(HANDLERS)) {
     commands[name] = async (args, rt) => renderResult(await handler(args, rt as Runtime));
   }
+  commands.update = async (args) => renderResult(await updateCommand(args));
 
   await runAxiCli<Runtime>({
     description: DESCRIPTION,
