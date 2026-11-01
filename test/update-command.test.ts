@@ -54,7 +54,7 @@ describe("update command", () => {
 
   it("returns the already-latest result without executing", async () => {
     const execute = vi.fn();
-    expect(await updateCommand([], deps({ fetchLatest: async () => "0.1.8", execute }))).toMatchObject({
+    expect(await updateCommand([], deps({ fetchLatest: async () => VERSION, execute }))).toMatchObject({
       update: { action: "current", available: false },
     });
     expect(execute).not.toHaveBeenCalled();
