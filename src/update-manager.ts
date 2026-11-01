@@ -149,19 +149,13 @@ export function classify(
   for (const [manager, roots] of managerRoots)
     if (roots.some((root) => inside(path, root))) {
       const command =
-        manager === "volta"
-          ? ["volta", "install", "datadog-axi"]
-          : ["npm", "install", "-g", "datadog-axi@latest"];
+        manager === "volta" ? ["volta", "install", "datadog-axi"] : ["npm", "install", "-g", "datadog-axi@latest"];
       return { manager, instruction: command.join(" "), command };
     }
 
   const configuredPrefix = normalized(env.npm_config_prefix ?? env.NPM_CONFIG_PREFIX);
   const prefix = configuredPrefix ? (normalized(probe.realpath(configuredPrefix)) ?? configuredPrefix) : undefined;
-  const npmPrefixes = [
-    prefix,
-    "/usr/local",
-    home && `${home}/.npm-global`,
-  ].filter((x): x is string => Boolean(x));
+  const npmPrefixes = [prefix, "/usr/local", home && `${home}/.npm-global`].filter((x): x is string => Boolean(x));
   if (npmPrefixes.some((root) => inside(path, `${root}/lib/node_modules`) || inside(path, `${root}/node_modules`)))
     return {
       manager: "npm",
