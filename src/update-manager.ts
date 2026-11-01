@@ -151,15 +151,18 @@ export function classify(
       const command =
         manager === "volta"
           ? ["volta", "install", "datadog-axi"]
-          : manager === "mise"
-            ? ["mise", "use", "-g", "npm:datadog-axi@latest"]
-            : ["npm", "install", "-g", "datadog-axi@latest"];
+          : ["npm", "install", "-g", "datadog-axi@latest"];
       return { manager, instruction: command.join(" "), command };
     }
 
   const configuredPrefix = normalized(env.npm_config_prefix ?? env.NPM_CONFIG_PREFIX);
   const prefix = configuredPrefix ? (normalized(probe.realpath(configuredPrefix)) ?? configuredPrefix) : undefined;
-  if (prefix && (inside(path, `${prefix}/lib/node_modules`) || inside(path, `${prefix}/node_modules`)))
+  const npmPrefixes = [
+    prefix,
+    "/usr/local",
+    home && `${home}/.npm-global`,
+  ].filter((x): x is string => Boolean(x));
+  if (npmPrefixes.some((root) => inside(path, `${root}/lib/node_modules`) || inside(path, `${root}/node_modules`)))
     return {
       manager: "npm",
       instruction: "npm install -g datadog-axi@latest",

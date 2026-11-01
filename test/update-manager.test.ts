@@ -78,11 +78,16 @@ describe("update manager classification", () => {
   ] as const)("supports %s managed global install", (_label, path, manager) => {
     const result = classify(path, { HOME: "/home/u" });
     expect(result.manager).toBe(manager);
-    expect(result.command?.length).toBeGreaterThan(0);
+    expect(result.command).toEqual(
+      manager === "volta" ? ["volta", "install", "datadog-axi"] : ["npm", "install", "-g", "datadog-axi@latest"],
+    );
   });
 
   it.each([
     ["npm", "/tmp/npm/lib/node_modules/datadog-axi/bin/cli.js", { npm_config_prefix: "/tmp/npm" }, "npm"],
+    ["default npm root", "/usr/local/lib/node_modules/datadog-axi/bin/cli.js", {}, "npm"],
+    ["npm node_modules root", "/usr/local/node_modules/datadog-axi/bin/cli.js", {}, "npm"],
+    ["home npm-global root", "/home/u/.npm-global/lib/node_modules/datadog-axi/bin/cli.js", { HOME: "/home/u" }, "npm"],
     ["pnpm", "/home/u/Library/pnpm/global/3/node_modules/datadog-axi/bin/cli.js", { HOME: "/home/u" }, "pnpm"],
     ["yarn", "/home/u/.config/yarn/global/node_modules/datadog-axi/bin/cli.js", { HOME: "/home/u" }, "yarn"],
     ["bun", "/home/u/.bun/install/global/node_modules/datadog-axi/bin/cli.js", { HOME: "/home/u" }, "bun"],
