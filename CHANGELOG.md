@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.9](https://github.com/Dematom1/datadog-axi/compare/datadog-axi-v0.1.8...datadog-axi-v0.1.9) (2026-11-01)
+
+
+### Features
+
+* **cli:** update installations with their detected manager ([#34](https://github.com/Dematom1/datadog-axi/issues/34)) ([3097e5c](https://github.com/Dematom1/datadog-axi/commit/3097e5cfc6714e5d0c157905e60c1d74873efb88))
+
 ## [0.1.8](https://github.com/Dematom1/datadog-axi/compare/datadog-axi-v0.1.7...datadog-axi-v0.1.8) (2026-11-01)
 
 
