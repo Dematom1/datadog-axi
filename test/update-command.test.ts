@@ -84,7 +84,7 @@ describe("update command", () => {
       ...fakeFs({
         ["/private/tmp/npm/lib/node_modules/datadog-axi/package.json"]: '{"name":"datadog-axi","version":"0.1.0"}',
       }),
-      realpath: (path) => (path === "/tmp/npm/bin/cli.js" ? resolved : path),
+      realpath: (path: string) => (path === "/tmp/npm/bin/cli.js" ? resolved : path),
     };
     const result = await updateCommand(
       ["--check"],
