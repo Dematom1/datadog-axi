@@ -63,11 +63,7 @@ describe("update manager classification", () => {
       "Update datadog-axi in package.json",
     ],
   ] as const)("classifies %s", (_label, path, manager, instruction) => {
-    const result = classify(
-      path,
-      {},
-      probe(path.startsWith("/work/app/") ? { "/work/app/package.json": "{}" } : {}),
-    );
+    const result = classify(path, {}, probe(path.startsWith("/work/app/") ? { "/work/app/package.json": "{}" } : {}));
     expect(result.manager).toBe(manager);
     expect(result.instruction).toBe(instruction);
     expect(result.command).toBeUndefined();
