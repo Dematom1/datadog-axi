@@ -104,33 +104,35 @@ Each Datadog site is fully independent, so the same query on the wrong site just
 
 ## Commands
 
-| Command                                                       | What it shows                                                                                                       |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `datadog-axi`                                                 | Live home view: org, site, monitor counts by status, up to 5 alerting or no-data monitors, open incidents           |
-| `monitors [search] [<query>]`                                 | Monitor search with `--status`, `--tag`, `--name`; problems first, with status counts and totals                    |
-| `monitors view <id> [--full]`                                 | Query, message, tags and the non-OK groups; `--full` includes every tag                                             |
-| `logs search "<query>"`                                       | Events (time, service, status, message); `--from`, `--to`, `--index`, `--limit` (20, max 200), `--sort`, `--cursor` |
-| `logs aggregate "<query>" [--by <facet>]`                     | Counts, optionally grouped by `status`, `service`, `host` or `@attribute`                                           |
-| `logs view <id>`                                              | One event with its attributes                                                                                       |
-| `metrics query "<expr>"`                                      | Per-series summary (n, min, avg, max, last); `--points` for raw values                                              |
-| `metrics list`, `search <text>`, `view <name>`, `tags <name>` | Names, metadata and volume, tag cardinality                                                                         |
-| `traces search "<query>"`                                     | Spans (service, resource, duration, error)                                                                          |
-| `traces view <trace_id>`                                      | Summarized span tree                                                                                                |
-| `services list`, `view <name>`                                | Ownership, contacts and links from the service catalog                                                              |
-| `dashboards list`, `view <id>`                                | Widget titles and queries; the full JSON with `--full`                                                              |
-| `incidents list`, `view <id>`                                 | Open incidents by default (`--status active,stable,resolved`)                                                       |
-| `events list`, `search "<query>"`                             | Events by `--tags`, `--priority` and `--sources`, or an event query                                                 |
-| `hosts list`                                                  | Up and muted state, down hosts first                                                                                |
-| `slos list`, `view <id>`, `status <id>`                       | Targets, and the current SLI and error budget                                                                       |
-| `downtimes list`                                              | Current downtimes (`--all` includes ended ones)                                                                     |
-| `synthetics list`, `view <id>`, `results <id>`                | Tests and their latest results (never triggers a run)                                                               |
-| `notebooks list`, `view <id>`                                 | Notebooks, cell by cell                                                                                             |
-| `api [GET\|POST] <path>`                                      | Allowlisted read-only endpoints with no dedicated command                                                           |
-| `auth guide\|login\|status\|list\|logout`                     | Credential setup guide (pup login or keys) and credential management                                                |
-| `doctor`                                                      | Key validity, site reachability, readable domains, rate-limit headroom, whether the key could write                 |
-| `ctx`                                                         | Offline org, site and credential source; includes the current directory's last session summary when available       |
-| `setup hooks [--project]`, `setup status`, `setup uninstall`  | Install, inspect or remove agent session hooks                                                                      |
-| `update`                                                      | Self-update (from axi-sdk-js)                                                                                       |
+| Command                                                       | What it shows                                                                                                         |
+| ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `datadog-axi`                                                 | Live home view: org, site, monitor counts by status, up to 5 alerting or no-data monitors, open incidents             |
+| `monitors [search] [<query>]`                                 | Monitor search with `--status`, `--tag`, `--name`; problems first, with status counts and totals                      |
+| `monitors view <id> [--full]`                                 | Query, message, tags and the non-OK groups; `--full` includes every tag                                               |
+| `logs search "<query>"`                                       | Events (time, service, status, message); `--from`, `--to`, `--index`, `--limit` (20, max 200), `--sort`, `--cursor`   |
+| `logs aggregate "<query>" [--by <facet>]`                     | Counts, optionally grouped by `status`, `service`, `host` or `@attribute`                                             |
+| `logs view <id>`                                              | One event with its attributes                                                                                         |
+| `metrics query "<expr>"`                                      | Per-series summary (n, min, avg, max, last); `--points` for raw values                                                |
+| `metrics list`, `search <text>`, `view <name>`, `tags <name>` | Names, metadata and volume, tag cardinality                                                                           |
+| `traces search "<query>"`                                     | Spans (service, resource, duration, error)                                                                            |
+| `traces view <trace_id>`                                      | Summarized span tree                                                                                                  |
+| `services list`, `view <name>`                                | Ownership, contacts and links from the service catalog                                                                |
+| `dashboards list`, `view <id>`                                | Widget titles and queries; the full JSON with `--full`                                                                |
+| `incidents list`, `view <id>`                                 | Open incidents by default (`--status active,stable,resolved`)                                                         |
+| `events list`, `search "<query>"`                             | Events by `--tags`, `--priority` and `--sources`, or an event query                                                   |
+| `hosts list`                                                  | Up and muted state, down hosts first                                                                                  |
+| `slos list`, `view <id>`, `status <id>`                       | Targets, and the current SLI and error budget                                                                         |
+| `downtimes list`                                              | Current downtimes (`--all` includes ended ones)                                                                       |
+| `synthetics list`, `view <id>`, `results <id>`                | Tests and their latest results (never triggers a run)                                                                 |
+| `notebooks list`, `view <id>`                                 | Notebooks, cell by cell                                                                                               |
+| `api [GET\|POST] <path>`                                      | Allowlisted read-only endpoints with no dedicated command                                                             |
+| `auth guide\|login\|status\|list\|logout`                     | Credential setup guide (pup login or keys) and credential management                                                  |
+| `doctor`                                                      | Key validity, site reachability, readable domains, rate-limit headroom, whether the key could write                   |
+| `ctx`                                                         | Offline org, site and credential source; includes the current directory's last session summary when available         |
+| `setup hooks [--project]`, `setup status`, `setup uninstall`  | Install, inspect or remove agent session hooks                                                                        |
+| `update [--check]`                                            | Check the installed version and manager, or update with its matching installer; unsupported managers get instructions |
+
+`update --check` reports the installed version, latest version, manager and resolved executable path, and exits successfully for manual cases. When a manual action is required, it reports `action: manual`, `result: not updated`, and the exact instruction. For writable installs, `update` uses the matching installer: npm, pnpm, yarn, bun, Volta, the active Node version manager's npm, or Homebrew's `brew upgrade <formula>`. Other cases exit 2 with `MANUAL_UPDATE_REQUIRED`, `result: not updated`, `action: manual`, the manager and path, and a plain `Nothing was updated.` message followed by the exact instruction. It never runs an installer for manual cases: Nix installs require a config change and rebuild; system-package installs use apt/dnf/pacman/apk guidance; project-local installs update through their package manager; npx, pnpm dlx and bunx caches fetch on the next run; and linked checkouts require `git pull` and a rebuild. Unknown installs are never assigned a guessed installer.
 
 Run `datadog-axi --help`, or `datadog-axi <command> --help` for one command's flags and examples.
 
@@ -146,7 +148,7 @@ Run `datadog-axi --help`, or `datadog-axi <command> --help` for one command's fl
 
 ### Errors and exit codes
 
-Errors are printed on stdout as `error`, `code` and `help`. Exit code 0 means success, including an empty result or an alerting monitor (unhealthy state is data, not an error). Exit 1 is an error and exit 2 is a usage error.
+Errors are printed on stdout as `error`, `code` and `help`. Exit code 0 means success, including an empty result or an alerting monitor (unhealthy state is data, not an error). Exit 1 is an operational error; exit 2 is a usage error or a manual-update refusal.
 
 | Code                                                     | Meaning                                                                                              |
 | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
@@ -159,6 +161,8 @@ Errors are printed on stdout as `error`, `code` and `help`. Exit code 0 means su
 | `UPSTREAM_ERROR`                                         | Any other Datadog server error                                                                       |
 | `REFUSED`                                                | A write, credential or unregistered request                                                          |
 | `WRONG_SITE`                                             | `--site` disagrees with the org's pinned site                                                        |
+| `UPDATE_ERROR`                                           | The matching installer failed or the installed copy did not reach the latest version                 |
+| `MANUAL_UPDATE_REQUIRED`                                 | No safe automatic installer is available; follow the reported manager-specific instruction           |
 | `CONFIG_INVALID`, `KEYCHAIN_UNAVAILABLE`, `SETUP_FAILED` | Local problems                                                                                       |
 
 ## Safety model

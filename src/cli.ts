@@ -1,4 +1,17 @@
-import { runAxiCli, type AxiCliCommand } from "axi-sdk-js";
+import { execFile } from "node:child_process";
+import { delimiter, dirname } from "node:path";
+import { promisify } from "node:util";
+import { AxiError, fetchLatestVersion, isUpdateAvailable, runAxiCli, type AxiCliCommand } from "axi-sdk-js";
+import {
+  defaultProbe,
+  detectInstallMethod,
+  installedVersion,
+  planUpgrade,
+  realRunningPath,
+  writableMethod,
+  type ExecProbe,
+  type UpdateProbe,
+} from "./update-manager.js";
 import { API_HELP, apiCommand } from "./commands/api.js";
 import { AUTH_HELP, authCommand } from "./commands/auth.js";
 import { CTX_HELP, ctxCommand } from "./commands/ctx.js";
@@ -22,6 +35,8 @@ import { formatError, renderResult } from "./output.js";
 import { defaultRuntime, type Runtime } from "./runtime.js";
 import { VERSION } from "./version.js";
 import { contextEndCommand } from "./sessions.js";
+
+const execFileAsync = promisify(execFile);
 
 export const DESCRIPTION =
   "Read-first Datadog for agents: monitors, logs, metrics, traces, incidents and more as compact TOON, straight from the Datadog API";
@@ -119,6 +134,80 @@ export interface MainOptions {
   stdout?: { write: (chunk: string) => unknown };
 }
 
+export type UpdateCommandDependencies = {
+  packageName?: string;
+  entry?: string;
+  env?: NodeJS.ProcessEnv;
+  fs?: UpdateProbe;
+  exec?: ExecProbe;
+  fetchLatest?: (name: string) => Promise<string>;
+  execute?: (command: string, args: string[], env?: NodeJS.ProcessEnv) => Promise<void>;
+};
+
+export async function updateCommand(
+  args: string[],
+  dependencies: UpdateCommandDependencies = {},
+): Promise<Record<string, unknown>> {
+  if (args.length > 1 || (args.length === 1 && args[0] !== "--check"))
+    throw new AxiError("Use update [--check]", "VALIDATION_ERROR");
+  const packageName = dependencies.packageName ?? "datadog-axi";
+  const env = dependencies.env ?? process.env;
+  const fs = dependencies.fs ?? defaultProbe;
+  const runningEntry = dependencies.entry ?? process.argv[1] ?? "";
+  const realPath = realRunningPath(runningEntry, fs);
+  const detected = await detectInstallMethod(realPath, packageName, { env, fs, exec: dependencies.exec });
+  const method = writableMethod(detected, realPath, packageName, fs);
+  const plan = planUpgrade(method, packageName);
+  const latest = await (dependencies.fetchLatest ?? fetchLatestVersion)(packageName);
+  const available = isUpdateAvailable(VERSION, latest);
+  const update = { package: packageName, current: VERSION, latest, available, manager: plan.manager, path: realPath };
+  const manual = !plan.command || !plan.argv;
+  if (args[0] === "--check")
+    return {
+      update: manual
+        ? {
+            ...update,
+            result: "not updated",
+            action: "manual",
+            instruction: plan.note,
+            note: `Nothing was updated. ${plan.note}`,
+          }
+        : update,
+      ...(available ? { help: [manual ? plan.note : `Run ${plan.note} to upgrade`] } : {}),
+    };
+  if (!plan.command || !plan.argv)
+    throw Object.assign(new AxiError(`Nothing was updated. ${plan.note}`, "MANUAL_UPDATE_REQUIRED"), {
+      result: "not updated",
+      action: "manual",
+      manager: plan.manager,
+      path: realPath,
+      instruction: plan.note,
+    });
+  if (!available)
+    return { update: { ...update, action: "current", note: `${packageName} is already on the latest version` } };
+  try {
+    const commandEnv =
+      method.kind === "node-version-manager"
+        ? { ...env, PATH: `${dirname(method.npm)}${delimiter}${env.PATH ?? ""}` }
+        : env;
+    if (dependencies.execute) await dependencies.execute(plan.command, plan.argv, commandEnv);
+    else await execFileAsync(plan.command, plan.argv, { encoding: "utf8", env: commandEnv });
+  } catch (error) {
+    throw new AxiError(
+      `${plan.manager} update failed: ${error instanceof Error ? error.message : String(error)}`,
+      "UPDATE_ERROR",
+    );
+  }
+  const installedPath = fs.realpath(runningEntry) ?? realPath;
+  const version = installedVersion(installedPath, packageName, fs);
+  if (!version || isUpdateAvailable(version, latest))
+    throw new AxiError(
+      `Installer reported success but ${installedPath} is still ${version ?? "unreadable"}; another copy may shadow it`,
+      "UPDATE_ERROR",
+    );
+  return { update: { ...update, action: "upgraded", current: latest } };
+}
+
 export async function main(options: MainOptions = {}): Promise<void> {
   const argv = options.argv ?? process.argv.slice(2);
   if (argv[0] === "context" && argv[1] === "end") {
@@ -134,6 +223,7 @@ export async function main(options: MainOptions = {}): Promise<void> {
   for (const [name, handler] of Object.entries(HANDLERS)) {
     commands[name] = async (args, rt) => renderResult(await handler(args, rt as Runtime));
   }
+  commands.update = async (args) => renderResult(await updateCommand(args));
 
   await runAxiCli<Runtime>({
     description: DESCRIPTION,
