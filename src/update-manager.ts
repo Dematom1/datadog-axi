@@ -93,24 +93,22 @@ async function packageDatabaseOwner(
   exec: ExecProbe,
 ): Promise<Extract<InstallMethod, { kind: "system-package" }> | undefined> {
   if (!/^\/(?:usr\/lib(?:64)?|usr\/share)\//.test(path)) return undefined;
-  const databases: ["dpkg" | "rpm" | "pacman" | "apk", string, string[]][] = [
+  const databases: ["dpkg" | "rpm" | "pacman" | "apk", string | string[], string[]][] = [
     ["dpkg", "/var/lib/dpkg/status", ["dpkg-query", "-S", path]],
-    ["rpm", "/var/lib/rpm/Packages", ["rpm", "-qf", path]],
+    ["rpm", ["/var/lib/rpm", "/usr/lib/sysimage/rpm"], ["rpm", "-qf", "--qf", "%{NAME}\\n", path]],
     ["pacman", "/var/lib/pacman/local", ["pacman", "-Qqo", path]],
     ["apk", "/lib/apk/db/installed", ["apk", "info", "-W", path]],
   ];
-  const database = databases.find(([, marker]) => fs.exists(marker));
+  const database = databases.find(([, marker]) =>
+    Array.isArray(marker) ? marker.some((candidate) => fs.exists(candidate)) : fs.exists(marker),
+  );
   if (!database) return undefined;
   const [manager, , argv] = database;
   const result = await exec(argv);
   if (result.code !== 0 || !result.stdout.trim()) return undefined;
   const text = result.stdout.trim();
   const owner =
-    manager === "dpkg"
-      ? text.split(":", 1)[0]
-      : manager === "apk"
-        ? text.split(" is owned by ").at(-1)
-        : text.split(/[\\s:]/, 1)[0];
+    manager === "dpkg" ? text.split(":", 1)[0] : manager === "apk" ? text.split(" is owned by ").at(-1) : text;
   return { kind: "system-package", manager, package: owner ?? text };
 }
 
@@ -211,7 +209,7 @@ export async function detectInstallMethod(
     const result = await exec(["npm", "root", "-g"]);
     const root = normalize(result.stdout.trim());
     if (result.code === 0 && root && !root.startsWith("/nix/store/") && inside(path, root))
-      npmRoot = root.replace(/\/lib\/node_modules$/, "");
+      npmRoot = root.replace(/\/(?:lib\/)?node_modules$/, "");
   }
   if (npmRoot) {
     const derived = configured ? undefined : npmRoot;

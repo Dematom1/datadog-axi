@@ -24,6 +24,7 @@ export function formatError(error: unknown): { output: string; exitCode: number 
     const manual =
       error.code === "MANUAL_UPDATE_REQUIRED"
         ? (error as AxiError & {
+            result: string;
             action: string;
             manager: string;
             path: string;
@@ -35,6 +36,7 @@ export function formatError(error: unknown): { output: string; exitCode: number 
         error: error.message,
         code: error.code,
         ...(manual && {
+          result: manual.result,
           action: manual.action,
           manager: manual.manager,
           path: manual.path,

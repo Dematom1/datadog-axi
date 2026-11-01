@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { dirname } from "node:path";
+import { delimiter, dirname } from "node:path";
 import { promisify } from "node:util";
 import { AxiError, fetchLatestVersion, isUpdateAvailable, runAxiCli, type AxiCliCommand } from "axi-sdk-js";
 import {
@@ -177,6 +177,7 @@ export async function updateCommand(
     };
   if (!plan.command || !plan.argv)
     throw Object.assign(new AxiError(`Nothing was updated. ${plan.note}`, "MANUAL_UPDATE_REQUIRED"), {
+      result: "not updated",
       action: "manual",
       manager: plan.manager,
       path: realPath,
@@ -186,7 +187,9 @@ export async function updateCommand(
     return { update: { ...update, action: "current", note: `${packageName} is already on the latest version` } };
   try {
     const commandEnv =
-      method.kind === "node-version-manager" ? { ...env, PATH: `${dirname(method.npm)}:${env.PATH ?? ""}` } : env;
+      method.kind === "node-version-manager"
+        ? { ...env, PATH: `${dirname(method.npm)}${delimiter}${env.PATH ?? ""}` }
+        : env;
     if (dependencies.execute) await dependencies.execute(plan.command, plan.argv, commandEnv);
     else await execFileAsync(plan.command, plan.argv, { encoding: "utf8", env: commandEnv });
   } catch (error) {

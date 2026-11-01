@@ -110,7 +110,7 @@ describe("update command", () => {
         env: {},
         manager: "dpkg",
         fs: fakeFs({ "/var/lib/dpkg/status": "" }),
-        exec: async () => ({ code: 0, stdout: "/usr/lib/node_modules/datadog-axi/bin/cli.js: datadog-axi\\n" }),
+        exec: async () => ({ code: 0, stdout: "datadog-axi: /usr/lib/node_modules/datadog-axi/bin/cli.js\n" }),
       },
       {
         entry: "/home/test/.local/share/mise/installs/npm-10/lib/node_modules/datadog-axi/bin/cli.js",
@@ -140,6 +140,7 @@ describe("update command", () => {
       const error = await updateCommand([], deps(options)).catch((error) => error);
       expect(error).toMatchObject({
         code: "MANUAL_UPDATE_REQUIRED",
+        result: "not updated",
         action: "manual",
         manager: row.manager,
         path: row.entry,
@@ -147,6 +148,7 @@ describe("update command", () => {
       });
       const rendered = formatError(error);
       expect(rendered.exitCode).toBe(2);
+      expect(rendered.output).toContain("result: not updated");
       expect(rendered.output).toContain("Nothing was updated.");
       expect(rendered.output).toContain(`manager: ${row.manager}`);
       expect(rendered.output).toContain(`path: ${row.entry}`);

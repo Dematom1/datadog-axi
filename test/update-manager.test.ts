@@ -96,8 +96,8 @@ describe("detectInstallMethod", () => {
 
   it.each([
     ["dpkg", "/var/lib/dpkg/status", "demo-package: /usr/lib/node_modules/demo-axi/bin/cli.js\n", "demo-package"],
-    ["rpm", "/var/lib/rpm/Packages", "demo-package-1.0.x86_64\n", "demo-package-1.0.x86_64"],
-    ["pacman", "/var/lib/pacman/local", "demo-package\n", "demo-package"],
+    ["rpm", "/var/lib/rpm", "demo-package\n", "demo-package"],
+    ["pacman", "/var/lib/pacman/local", "systemd-resolved\n", "systemd-resolved"],
     [
       "apk",
       "/lib/apk/db/installed",
@@ -120,6 +120,27 @@ describe("detectInstallMethod", () => {
     },
   );
 
+  it("recognizes the modern RPM database and queries only the package name", async () => {
+    const exec = vi.fn(async () => ({
+      code: 0,
+      stdout: "demo-package\n",
+    }));
+    const method = await run(
+      "/usr/lib/node_modules/demo-axi/bin/cli.js",
+      {},
+      probe({ "/usr/lib/sysimage/rpm": "" }),
+      exec,
+    );
+    expect(method).toEqual({ kind: "system-package", manager: "rpm", package: "demo-package" });
+    expect(exec).toHaveBeenCalledWith([
+      "rpm",
+      "-qf",
+      "--qf",
+      "%{NAME}\\n",
+      "/usr/lib/node_modules/demo-axi/bin/cli.js",
+    ]);
+  });
+
   it("classifies a package-database-owned /usr/lib package, but leaves unowned npm globals as npm", async () => {
     const owned = await run(
       "/usr/lib/node_modules/demo-axi/bin/cli.js",
@@ -141,9 +162,9 @@ describe("detectInstallMethod", () => {
   });
 
   it("uses npm root only outside Nix and detects package manager globals by project lockfile", async () => {
-    const npm = await run("/custom/npm-root/demo-axi/bin/cli.js", {}, probe(), async () => ({
+    const npm = await run("/custom/npm-root/node_modules/demo-axi/bin/cli.js", {}, probe(), async () => ({
       code: 0,
-      stdout: "/custom/npm-root\n",
+      stdout: "/custom/npm-root/node_modules\n",
     }));
     expect(npm).toEqual({ kind: "npm-global", prefix: "/custom/npm-root" });
     const aliasedPrefix = await detectInstallMethod("/private/tmp/npm/lib/node_modules/demo-axi/bin/cli.js", name, {
