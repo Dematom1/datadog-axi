@@ -124,7 +124,7 @@ export interface MainOptions {
   stdout?: { write: (chunk: string) => unknown };
 }
 
-async function updateCommand(args: string[]): Promise<Record<string, unknown>> {
+export async function updateCommand(args: string[]): Promise<Record<string, unknown>> {
   if (args.length > 1 || (args.length === 1 && args[0] !== "--check")) {
     throw new AxiError("Use update [--check]", "VALIDATION_ERROR");
   }
@@ -132,7 +132,7 @@ async function updateCommand(args: string[]): Promise<Record<string, unknown>> {
   const install = classify(realPath, process.env);
   const check = args[0] === "--check";
   if (!check && !install.command)
-    return { update: { manager: install.manager, realPath, action: "manual", instruction: install.instruction } };
+    throw new AxiError(`${install.manager} installation at ${realPath}: ${install.instruction}`, "UPDATE_ERROR");
   const latest = await fetchLatestVersion("datadog-axi");
   const available = isUpdateAvailable(VERSION, latest);
   if (check)
@@ -152,7 +152,7 @@ async function updateCommand(args: string[]): Promise<Record<string, unknown>> {
     return { update: `datadog-axi is already on the latest version (${VERSION})`, manager: install.manager, realPath };
   const [command, ...argv] = install.command ?? [];
   if (!command)
-    return { update: { manager: install.manager, realPath, action: "manual", instruction: install.instruction } };
+    throw new AxiError(`${install.manager} installation at ${realPath}: ${install.instruction}`, "UPDATE_ERROR");
   try {
     await execFileAsync(command, argv);
   } catch (error) {
