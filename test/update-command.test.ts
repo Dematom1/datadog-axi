@@ -2,6 +2,7 @@ import { AxiError } from "axi-sdk-js";
 import { describe, expect, it, vi } from "vitest";
 import { updateCommand } from "../src/cli.js";
 import { formatError } from "../src/output.js";
+import { VERSION } from "../src/version.js";
 import type { UpdateProbe } from "../src/update-manager.js";
 import type { UpdateCommandDependencies } from "../src/cli.js";
 
@@ -42,7 +43,7 @@ describe("update command", () => {
         package: "datadog-axi",
         manager: "npm",
         path: entry,
-        current: "0.1.8",
+        current: VERSION,
         latest: "1.0.0",
         available: true,
       },
