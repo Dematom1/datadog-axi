@@ -188,13 +188,6 @@ export function classify(
       return { manager, instruction: command.join(" "), command };
     }
   if (/\/node_modules\/datadog-axi\//.test(path)) return refuse("project-local", "Update datadog-axi in package.json");
-  if (path.includes("/lib/node_modules/") || path.includes("/node_modules/"))
-    return {
-      manager: "npm",
-      instruction: "npm install -g datadog-axi@latest",
-      command: ["npm", "install", "-g", "datadog-axi@latest"],
-    };
-
   let dir = dirname(path);
   while (dir !== dirname(dir)) {
     const pkg = probe.read(join(dir, "package.json"));
