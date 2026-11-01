@@ -161,11 +161,32 @@ export async function updateCommand(
   const latest = await (dependencies.fetchLatest ?? fetchLatestVersion)(packageName);
   const available = isUpdateAvailable(VERSION, latest);
   const update = { package: packageName, current: VERSION, latest, available, manager: plan.manager, path: realPath };
+  const manual = !plan.command || !plan.argv;
   if (args[0] === "--check")
-    return { update, ...(available ? { help: [plan.command ? `Run ${plan.note} to upgrade` : plan.note] } : {}) };
+    return {
+      update: manual
+        ? {
+            ...update,
+            result: "not updated",
+            action: "manual",
+            instruction: plan.note,
+            note: `Nothing was updated. ${plan.note}`,
+          }
+        : update,
+      ...(available ? { help: [manual ? plan.note : `Run ${plan.note} to upgrade`] } : {}),
+    };
+  if (!plan.command || !plan.argv)
+    return {
+      update: {
+        ...update,
+        result: "not updated",
+        action: "manual",
+        instruction: plan.note,
+        note: `Nothing was updated. ${plan.note}`,
+      },
+    };
   if (!available)
     return { update: { ...update, action: "current", note: `${packageName} is already on the latest version` } };
-  if (!plan.command || !plan.argv) return { update: { ...update, action: "manual", note: plan.note } };
   try {
     const commandEnv =
       method.kind === "node-version-manager" ? { ...env, PATH: `${dirname(method.npm)}:${env.PATH ?? ""}` } : env;

@@ -71,11 +71,72 @@ describe("update command", () => {
     });
   });
 
-  it("returns manual action with exit-zero contract for unknown managers", async () => {
-    const execute = vi.fn();
-    const result = await updateCommand([], deps({ entry: "/custom/tool/cli.js", env: {}, execute }));
-    expect(result).toMatchObject({ update: { action: "manual", manager: "unknown", path: "/custom/tool/cli.js" } });
-    expect(execute).not.toHaveBeenCalled();
+  it("makes every unsupported update explicit in update and --check output", async () => {
+    const project = "/tmp/project";
+    const checkout = "/tmp/checkout";
+    const rows = [
+      { entry: "/nix/store/hash/cli.js", env: {}, manager: "nix" },
+      {
+        entry: "/tmp/.npm/_npx/hash/node_modules/datadog-axi/bin/cli.js",
+        env: {},
+        manager: "npx",
+      },
+      {
+        entry: `${project}/node_modules/datadog-axi/bin/cli.js`,
+        env: {},
+        manager: "project-local",
+        fs: fakeFs({ [`${project}/package.json`]: '{"name":"project"}' }),
+      },
+      {
+        entry: `${checkout}/node_modules/datadog-axi/bin/cli.js`,
+        env: {},
+        manager: "linked",
+        fs: fakeFs({
+          [`${checkout}/node_modules/datadog-axi/package.json`]: '{"name":"datadog-axi"}',
+          [`${checkout}/.git`]: "",
+        }),
+      },
+      {
+        entry: "/tmp/npm/lib/node_modules/datadog-axi/bin/cli.js",
+        env: { npm_config_prefix: "/tmp/npm" },
+        manager: "read-only",
+        fs: fakeFs(files(), false),
+      },
+      {
+        entry: "/usr/lib/node_modules/datadog-axi/bin/cli.js",
+        env: {},
+        manager: "dpkg",
+        fs: fakeFs({ "/var/lib/dpkg/status": "" }),
+        exec: async () => ({ code: 0, stdout: "/usr/lib/node_modules/datadog-axi/bin/cli.js: datadog-axi\\n" }),
+      },
+      {
+        entry: "/home/test/.local/share/mise/installs/npm-10/lib/node_modules/datadog-axi/bin/cli.js",
+        env: { HOME: "/home/test" },
+        manager: "mise",
+      },
+      { entry: "/custom/tool/cli.js", env: {}, manager: "unknown" },
+    ];
+
+    for (const row of rows) {
+      const execute = vi.fn();
+      const options = { ...row, execute, fetchLatest: async () => "0.1.8" };
+      for (const args of [[], ["--check"]]) {
+        const result = await updateCommand(args, deps(options));
+        expect(result).toMatchObject({
+          update: {
+            result: "not updated",
+            action: "manual",
+            manager: row.manager,
+            path: row.entry,
+            instruction: expect.any(String),
+            note: expect.stringContaining("Nothing was updated."),
+          },
+        });
+        const text = JSON.stringify(result).toLowerCase();
+        expect(text).not.toMatch(/successfully|already on the latest|upgraded/);
+      }
+      expect(execute).not.toHaveBeenCalled();
+    }
   });
 
   it("reports the resolved real path", async () => {
