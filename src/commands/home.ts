@@ -78,7 +78,7 @@ export async function homeCommand(rt: Runtime, args: string[] = []): Promise<Rec
       query: { query: '(status:alert OR status:"no data")', per_page: 5 },
       timeoutMs: HOME_TIMEOUT_MS,
     }),
-    seam.call<{ data?: { attributes?: { total?: number } } }>("incidents.search", {
+    seam.call<unknown>("incidents.search", {
       query: { query: incidentStateQuery(["active", "stable"]), "page[size]": 1 },
       timeoutMs: HOME_TIMEOUT_MS,
     }),
@@ -115,7 +115,23 @@ export async function homeCommand(rt: Runtime, args: string[] = []): Promise<Rec
   }
 
   if (incidents.status === "fulfilled") {
-    output.incidents = `${incidents.value.data.data?.attributes?.total ?? 0} open`;
+    const response: unknown = incidents.value.data;
+    const total =
+      response &&
+      typeof response === "object" &&
+      "data" in response &&
+      response.data &&
+      typeof response.data === "object" &&
+      "attributes" in response.data &&
+      response.data.attributes &&
+      typeof response.data.attributes === "object" &&
+      "total" in response.data.attributes
+        ? response.data.attributes.total
+        : undefined;
+    output.incidents =
+      typeof total === "number" && Number.isInteger(total) && total >= 0 && total <= 2_147_483_647
+        ? `${total} open`
+        : "unavailable - total unknown";
   } else {
     output.incidents = `unavailable - ${reason(incidents.reason)}`;
   }

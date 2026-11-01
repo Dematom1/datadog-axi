@@ -93,6 +93,26 @@ describe("home view", () => {
     expect(stdout).toContain("incidents: 2 open");
   });
 
+  it("reports missing and malformed incident totals as unavailable but preserves a real zero", async () => {
+    for (const total of [undefined, "0", null, 1.5, -1, 2_147_483_648]) {
+      const body = total === undefined ? { data: { attributes: {} } } : { data: { attributes: { total } } };
+      const fetch = fakeFetch({
+        "GET /api/v1/monitor/search": { body: fixture("monitor-search.json") },
+        "GET /api/v2/incidents/search": { body },
+      });
+      const { stdout, exitCode } = await run([], makeRuntime({ env: EU, fetch }));
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain("incidents: unavailable - total unknown");
+    }
+
+    const fetch = fakeFetch({
+      "GET /api/v1/monitor/search": { body: fixture("monitor-search.json") },
+      "GET /api/v2/incidents/search": { body: { data: { attributes: { total: 0 } } } },
+    });
+    const { stdout } = await run([], makeRuntime({ env: EU, fetch }));
+    expect(stdout).toContain("incidents: 0 open");
+  });
+
   it("reports malformed monitor summaries as unavailable instead of zero", async () => {
     const fetch = fakeFetch({
       "GET /api/v1/monitor/search": { body: {} },
