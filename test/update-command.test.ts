@@ -4,7 +4,11 @@ import { updateCommand } from "../src/cli.js";
 
 const originalEntry = process.argv[1];
 afterEach(() => {
-  process.argv[1] = originalEntry;
+  if (originalEntry === undefined) {
+    delete process.argv[1];
+  } else {
+    process.argv[1] = originalEntry;
+  }
 });
 
 describe("update command", () => {
