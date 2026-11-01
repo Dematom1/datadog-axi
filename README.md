@@ -132,6 +132,8 @@ Each Datadog site is fully independent, so the same query on the wrong site just
 | `setup hooks [--project]`, `setup status`, `setup uninstall`  | Install, inspect or remove agent session hooks                                                                        |
 | `update [--check]`                                            | Check the installed version and manager, or update with its matching installer; unsupported managers get instructions |
 
+`update --check` reports the installed version, latest version, manager and resolved executable path. `update` runs only the detected manager's installer when the installation is writable. Otherwise it returns `action: manual` with guidance and does not run an installer: Nix installs require a config change and rebuild; Homebrew uses `brew upgrade`; apt/dnf/pacman/apk installs use their system package manager; project-local installs update through their package manager; npx, pnpm dlx and bunx caches fetch on the next run; and linked checkouts require `git pull` and a rebuild. Unknown installs are never assigned a guessed installer.
+
 Run `datadog-axi --help`, or `datadog-axi <command> --help` for one command's flags and examples.
 
 ### Conventions

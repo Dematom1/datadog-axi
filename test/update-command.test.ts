@@ -1,25 +1,156 @@
 import { AxiError } from "axi-sdk-js";
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { updateCommand } from "../src/cli.js";
+import type { UpdateProbe } from "../src/update-manager.js";
+import type { UpdateCommandDependencies } from "../src/cli.js";
 
-const originalEntry = process.argv[1];
-afterEach(() => {
-  if (originalEntry === undefined) {
-    delete process.argv[1];
-  } else {
-    process.argv[1] = originalEntry;
-  }
+function fakeFs(files: Record<string, string>, writable = true): UpdateProbe {
+  return {
+    exists: (path) => path in files,
+    read: (path) => files[path],
+    writable: () => writable,
+    realpath: (path) => path,
+  };
+}
+const entry = "/tmp/npm/lib/node_modules/datadog-axi/bin/cli.js";
+const files = () => ({
+  "/tmp/npm/lib/node_modules/datadog-axi/package.json": '{"name":"datadog-axi","version":"0.1.0"}',
+});
+const packageDbExec = async () => ({ code: 1, stdout: "" });
+const deps = (overrides: Partial<UpdateCommandDependencies> = {}) => ({
+  entry,
+  env: { npm_config_prefix: "/tmp/npm" },
+  fs: fakeFs(files()),
+  exec: packageDbExec,
+  fetchLatest: async () => "1.0.0",
+  ...overrides,
 });
 
 describe("update command", () => {
-  it("refuses an unknown installation with UPDATE_ERROR and its update instruction", async () => {
-    process.argv[1] = "/custom/yarn/node_modules/datadog-axi/bin/cli.js";
+  it("validates arguments", async () => {
+    await expect(updateCommand(["--force"], deps())).rejects.toMatchObject({
+      code: "VALIDATION_ERROR",
+    } satisfies Partial<AxiError>);
+  });
 
-    await expect(updateCommand([])).rejects.toMatchObject({
-      code: "UPDATE_ERROR",
-      message: expect.stringContaining(
-        "unknown installation at /custom/yarn/node_modules/datadog-axi/bin/cli.js: Cannot safely identify the installation manager",
+  it("reports manager and real path in --check without executing an installer", async () => {
+    const execute = vi.fn();
+    const result = await updateCommand(["--check"], deps({ execute }));
+    expect(result).toMatchObject({
+      update: {
+        package: "datadog-axi",
+        manager: "npm",
+        path: entry,
+        current: "0.1.8",
+        latest: "1.0.0",
+        available: true,
+      },
+      help: ["Run npm install -g datadog-axi@latest to upgrade"],
+    });
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it("returns the already-latest result without executing", async () => {
+    const execute = vi.fn();
+    expect(await updateCommand([], deps({ fetchLatest: async () => "0.1.8", execute }))).toMatchObject({
+      update: { action: "current", available: false },
+    });
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it("reports Nix as manual and never invokes an installer", async () => {
+    const execute = vi.fn();
+    const result = await updateCommand(["--check"], deps({ entry: "/nix/store/hash/cli.js", env: {}, execute }));
+    expect(result).toMatchObject({
+      update: { manager: "nix", path: "/nix/store/hash/cli.js" },
+      help: [expect.stringContaining("Nix config/flake and rebuild")],
+    });
+    expect(execute).not.toHaveBeenCalled();
+    expect(await updateCommand([], deps({ entry: "/nix/store/hash/cli.js", env: {}, execute }))).toMatchObject({
+      update: { action: "manual", manager: "nix" },
+    });
+  });
+
+  it("returns manual action with exit-zero contract for unknown managers", async () => {
+    const execute = vi.fn();
+    const result = await updateCommand([], deps({ entry: "/custom/tool/cli.js", env: {}, execute }));
+    expect(result).toMatchObject({ update: { action: "manual", manager: "unknown", path: "/custom/tool/cli.js" } });
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it("reports the resolved real path", async () => {
+    const resolved = "/private/tmp/npm/lib/node_modules/datadog-axi/dist/bin/cli.js";
+    const fs = {
+      ...fakeFs({
+        ["/private/tmp/npm/lib/node_modules/datadog-axi/package.json"]: '{"name":"datadog-axi","version":"0.1.0"}',
+      }),
+      realpath: (path) => (path === "/tmp/npm/bin/cli.js" ? resolved : path),
+    };
+    const result = await updateCommand(
+      ["--check"],
+      deps({ entry: "/tmp/npm/bin/cli.js", fs, env: { npm_config_prefix: "/private/tmp/npm" } }),
+    );
+    expect(result).toMatchObject({ update: { manager: "npm", path: resolved } });
+  });
+
+  it("runs only the planned installer and verifies the installed version", async () => {
+    const state = files();
+    const execute = vi.fn(async (command: string, args: string[]) => {
+      expect(command).toBe("npm");
+      expect(args).toEqual(["install", "-g", "datadog-axi@latest"]);
+      state["/tmp/npm/lib/node_modules/datadog-axi/package.json"] = '{"name":"datadog-axi","version":"1.0.0"}';
+    });
+    const result = await updateCommand([], deps({ fs: fakeFs(state), execute }));
+    expect(result).toMatchObject({ update: { action: "upgraded", manager: "npm", current: "1.0.0" } });
+    expect(execute).toHaveBeenCalledOnce();
+  });
+
+  it("post-checks the version reached through a retargeted pnpm global link", async () => {
+    const entry = "/tmp/pnpm/bin/datadog-axi";
+    let target = "/tmp/pnpm/store/v11/links/@/datadog-axi/0.0.1/old/node_modules/datadog-axi/dist/bin/cli.js";
+    const packages: Record<string, string> = {
+      "/tmp/pnpm/store/v11/links/@/datadog-axi/0.0.1/old/node_modules/datadog-axi/package.json":
+        '{"name":"datadog-axi","version":"0.0.1"}',
+      "/tmp/pnpm/store/v11/links/@/datadog-axi/0.1.0/new/node_modules/datadog-axi/package.json":
+        '{"name":"datadog-axi","version":"1.0.0"}',
+    };
+    const fs: UpdateProbe = {
+      exists: (path) => path in packages,
+      read: (path) => packages[path],
+      writable: () => true,
+      realpath: (path) => (path === entry ? target : path),
+    };
+    const result = await updateCommand(
+      [],
+      deps({
+        entry,
+        env: { PNPM_HOME: "/tmp/pnpm" },
+        fs,
+        execute: async () => {
+          target = "/tmp/pnpm/store/v11/links/@/datadog-axi/0.1.0/new/node_modules/datadog-axi/dist/bin/cli.js";
+        },
+      }),
+    );
+    expect(result).toMatchObject({ update: { manager: "pnpm", action: "upgraded", current: "1.0.0" } });
+  });
+
+  it("maps installer failures to UPDATE_ERROR", async () => {
+    await expect(
+      updateCommand(
+        [],
+        deps({
+          execute: async () => {
+            throw new Error("installer failed");
+          },
+        }),
       ),
+    ).rejects.toMatchObject({ code: "UPDATE_ERROR" } satisfies Partial<AxiError>);
+  });
+
+  it("fails when a successful installer leaves the installed copy stale", async () => {
+    await expect(updateCommand([], deps({ execute: async () => {} }))).rejects.toMatchObject({
+      code: "UPDATE_ERROR",
+      message: expect.stringContaining("still 0.1.0"),
     } satisfies Partial<AxiError>);
   });
 });
