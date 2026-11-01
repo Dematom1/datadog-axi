@@ -148,7 +148,7 @@ Run `datadog-axi --help`, or `datadog-axi <command> --help` for one command's fl
 
 ### Errors and exit codes
 
-Errors are printed on stdout as `error`, `code` and `help`. Exit code 0 means success, including an empty result or an alerting monitor (unhealthy state is data, not an error). Exit 1 is an error and exit 2 is a usage error.
+Errors are printed on stdout as `error`, `code` and `help`. Exit code 0 means success, including an empty result or an alerting monitor (unhealthy state is data, not an error). Exit 1 is an operational error; exit 2 is a usage error or a manual-update refusal.
 
 | Code                                                     | Meaning                                                                                              |
 | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
@@ -162,6 +162,7 @@ Errors are printed on stdout as `error`, `code` and `help`. Exit code 0 means su
 | `REFUSED`                                                | A write, credential or unregistered request                                                          |
 | `WRONG_SITE`                                             | `--site` disagrees with the org's pinned site                                                        |
 | `UPDATE_ERROR`                                           | The matching installer failed or the installed copy did not reach the latest version                 |
+| `MANUAL_UPDATE_REQUIRED`                                 | No safe automatic installer is available; follow the reported manager-specific instruction           |
 | `CONFIG_INVALID`, `KEYCHAIN_UNAVAILABLE`, `SETUP_FAILED` | Local problems                                                                                       |
 
 ## Safety model
