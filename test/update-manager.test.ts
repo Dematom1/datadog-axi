@@ -114,6 +114,9 @@ describe("update manager classification", () => {
         probe({ "/container/app/node_modules/datadog-axi/package.json": '{"name":"datadog-axi"}' }, false),
       ).manager,
     ).toBe("read-only");
+    const unknownGlobal = classify("/custom/yarn/node_modules/datadog-axi/bin/cli.js", {});
+    expect(unknownGlobal.manager).toBe("unknown");
+    expect(unknownGlobal.command).toBeUndefined();
     expect(classify("/container/app/bin/datadog-axi", {}).manager).toBe("unknown");
   });
 });
