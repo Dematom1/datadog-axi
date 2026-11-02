@@ -76,7 +76,10 @@ jobs:
       - name: Stamp and verify package revision
         run: |
           npm pkg set gitHead="$(git rev-parse HEAD)"
-          tarball="$(npm pack)"
+          npm pack >/dev/null
+          package_version="$(node -p 'JSON.parse(require("fs").readFileSync("package.json", "utf8")).version')"
+          tarball="datadog-axi-${package_version}.tgz"
+          test -f "$tarball"
           tar -xOzf "$tarball" package/package.json | node -e 'let text=""; process.stdin.on("data", c => text += c); process.stdin.on("end", () => { if (JSON.parse(text).gitHead !== process.argv[1]) process.exit(1); });' "$(git rev-parse HEAD)"
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
