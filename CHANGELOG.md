@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.10](https://github.com/Dematom1/datadog-axi/compare/datadog-axi-v0.1.9...datadog-axi-v0.1.10) (2026-11-02)
+
+
+### Bug Fixes
+
+* **setup:** report hook state truthfully ([#38](https://github.com/Dematom1/datadog-axi/issues/38)) ([e0bb392](https://github.com/Dematom1/datadog-axi/commit/e0bb3929e3ef911f761677c4b6850efc2cda80ba))
+
 ## [0.1.9](https://github.com/Dematom1/datadog-axi/compare/datadog-axi-v0.1.8...datadog-axi-v0.1.9) (2026-11-01)
 
 
