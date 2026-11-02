@@ -8,7 +8,7 @@ import {
   utimesSync,
   writeFileSync,
 } from "node:fs";
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -166,6 +166,77 @@ describe("session memory", () => {
         ],
       },
     });
+  });
+
+  it("rejects malformed project hooks before installing SessionStart hooks", async () => {
+    const home = mkdtempSync(join(tmpdir(), "datadog-axi-setup-"));
+    const cwd = mkdtempSync(join(tmpdir(), "datadog-axi-project-"));
+    const path = join(cwd, ".claude", "settings.json");
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, '{"hooks":null}');
+    const originalCwd = process.cwd();
+    const oldHome = process.env.HOME;
+    process.env.HOME = home;
+    try {
+      process.chdir(cwd);
+      await expect(setupCommand(["hooks", "--project"])).rejects.toMatchObject({ code: "SETUP_FAILED" });
+    } finally {
+      process.chdir(originalCwd);
+      if (oldHome === undefined) delete process.env.HOME;
+      else process.env.HOME = oldHome;
+    }
+    expect(readFileSync(path, "utf8")).toBe('{"hooks":null}');
+    expect(existsSync(join(home, ".codex", "hooks.json"))).toBe(false);
+  });
+
+  it("installs and reports SessionStart in CLAUDE_CONFIG_DIR", async () => {
+    const home = mkdtempSync(join(tmpdir(), "datadog-axi-home-"));
+    const selected = join(home, "claude-config");
+    mkdirSync(selected);
+    const settingsPath = join(selected, "settings.json");
+    writeFileSync(settingsPath, JSON.stringify({ permissions: { allow: ["Read"] } }));
+    const output = execFileSync(process.execPath, [cliPath, "setup", "hooks"], {
+      env: { ...process.env, HOME: home, CLAUDE_CONFIG_DIR: selected },
+      encoding: "utf8",
+    });
+    expect(output).toContain(`path: ${settingsPath}`);
+    expect(output).toContain("installed: true");
+    const settings = JSON.parse(readFileSync(settingsPath, "utf8"));
+    expect(settings.permissions).toEqual({ allow: ["Read"] });
+    expect(settings.hooks.SessionStart).toHaveLength(1);
+    expect(
+      JSON.parse(readFileSync(join(home, ".claude", "settings.json"), "utf8")).hooks?.SessionStart,
+    ).toBeUndefined();
+  });
+
+  it("reports malformed Claude hook entries as typed setup errors", async () => {
+    const home = mkdtempSync(join(tmpdir(), "datadog-axi-setup-"));
+    const path = join(home, ".claude", "settings.json");
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, '{"hooks":{"SessionEnd":[null]}}');
+    const oldClaudeConfig = process.env.CLAUDE_CONFIG_DIR;
+    process.env.CLAUDE_CONFIG_DIR = join(home, ".claude");
+    try {
+      await expect(setupCommand(["status"])).rejects.toMatchObject({ code: "SETUP_FAILED" });
+    } finally {
+      if (oldClaudeConfig === undefined) delete process.env.CLAUDE_CONFIG_DIR;
+      else process.env.CLAUDE_CONFIG_DIR = oldClaudeConfig;
+    }
+  });
+
+  it("reports unreadable Claude settings instead of claiming the hook is absent", async () => {
+    const home = mkdtempSync(join(tmpdir(), "datadog-axi-setup-"));
+    const path = join(home, ".claude", "settings.json");
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, "{");
+    const oldClaudeConfig = process.env.CLAUDE_CONFIG_DIR;
+    process.env.CLAUDE_CONFIG_DIR = join(home, ".claude");
+    try {
+      await expect(setupCommand(["status"])).rejects.toMatchObject({ code: "SETUP_FAILED" });
+    } finally {
+      if (oldClaudeConfig === undefined) delete process.env.CLAUDE_CONFIG_DIR;
+      else process.env.CLAUDE_CONFIG_DIR = oldClaudeConfig;
+    }
   });
 
   it("treats corrupt session history as absent", () => {
