@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.11](https://github.com/Dematom1/datadog-axi/compare/datadog-axi-v0.1.10...datadog-axi-v0.1.11) (2026-11-02)
+
+
+### Bug Fixes
+
+* allow manual release publishing ([#40](https://github.com/Dematom1/datadog-axi/issues/40)) ([6c0c5ab](https://github.com/Dematom1/datadog-axi/commit/6c0c5aba5e97ac401cab8b595826a6dd33d8be2b))
+
 ## [0.1.10](https://github.com/Dematom1/datadog-axi/compare/datadog-axi-v0.1.9...datadog-axi-v0.1.10) (2026-11-02)
 
 
