@@ -168,6 +168,21 @@ describe("session memory", () => {
     });
   });
 
+  it("reports unreadable Claude settings instead of claiming the hook is absent", async () => {
+    const home = mkdtempSync(join(tmpdir(), "datadog-axi-setup-"));
+    const path = join(home, ".claude", "settings.json");
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, "{");
+    const oldClaudeConfig = process.env.CLAUDE_CONFIG_DIR;
+    process.env.CLAUDE_CONFIG_DIR = join(home, ".claude");
+    try {
+      await expect(setupCommand(["status"])).rejects.toMatchObject({ code: "SETUP_FAILED" });
+    } finally {
+      if (oldClaudeConfig === undefined) delete process.env.CLAUDE_CONFIG_DIR;
+      else process.env.CLAUDE_CONFIG_DIR = oldClaudeConfig;
+    }
+  });
+
   it("treats corrupt session history as absent", () => {
     const home = mkdtempSync(join(tmpdir(), "datadog-axi-session-"));
     const env = { HOME: home };

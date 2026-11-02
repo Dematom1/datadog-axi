@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { AxiError, installSessionStartHooks } from "axi-sdk-js";
+import { AxiError, installSessionStartHooks, sessionStartHookStatus } from "axi-sdk-js";
 import { bool, parseArgs, type CommandSpec } from "../args.js";
 import { renderHelp } from "../help.js";
 
@@ -41,10 +41,28 @@ export async function setupCommand(args: string[]): Promise<Record<string, unkno
   const settingsPath = bool(parsed, "--project")
     ? join(process.cwd(), ".claude", "settings.json")
     : join(process.env.CLAUDE_CONFIG_DIR || join(process.env.HOME || homedir(), ".claude"), "settings.json");
-  if (args[0] === "status")
-    return { hooks: { claude_session_end: hasClaudeSessionEndHook(settingsPath) ? "installed" : "not installed" } };
-  if (args[0] === "uninstall")
-    return { hooks: { claude_session_end: removeClaudeSessionEndHook(settingsPath) ? "removed" : "not installed" } };
+  if (args[0] === "status") {
+    const status = sessionStartHookStatus({
+      marker: "datadog-axi",
+      scope: bool(parsed, "--project") ? "project" : "user",
+    });
+    return {
+      hooks: {
+        claude_session_end: hasClaudeSessionEndHook(settingsPath) ? "installed" : "not installed",
+        session_start: status,
+      },
+    };
+  }
+  if (args[0] === "uninstall") {
+    let removed: boolean;
+    try {
+      removed = removeClaudeSessionEndHook(settingsPath);
+    } catch (error) {
+      throw setupFailure("removal", settingsPath, error);
+    }
+    const remains = hasClaudeSessionEndHook(settingsPath);
+    return { hooks: { claude_session_end: remains ? "still installed" : removed ? "removed" : "not installed" } };
+  }
   const errors: string[] = [];
   installSessionStartHooks({
     marker: "datadog-axi",
@@ -54,16 +72,25 @@ export async function setupCommand(args: string[]): Promise<Record<string, unkno
     scope: bool(parsed, "--project") ? "project" : "user",
     onError: (message) => errors.push(message),
   });
-  if (!installClaudeSessionEndHook(settingsPath))
-    errors.push(`Could not safely update Claude settings at ${settingsPath}`);
+  try {
+    if (!installClaudeSessionEndHook(settingsPath))
+      errors.push(`Could not safely update Claude settings at ${settingsPath}`);
+  } catch (error) {
+    errors.push(setupFailure("installation", settingsPath, error).message);
+  }
   if (errors.length > 0) {
     throw new AxiError(`Hook installation reported problems: ${errors.join("; ")}`, "SETUP_FAILED", [
       "Fix the paths above, then re-run `datadog-axi setup hooks`",
     ]);
   }
+  const status = sessionStartHookStatus({
+    marker: "datadog-axi",
+    scope: bool(parsed, "--project") ? "project" : "user",
+  });
+  const sessionEnd = hasClaudeSessionEndHook(settingsPath);
   return {
     hooks: {
-      status: "installed or already up to date",
+      status: { claude_session_end: sessionEnd, session_start: status },
       scope: bool(parsed, "--project") ? "project" : "user",
       integrations: "Claude Code, Codex, OpenCode",
       command: "datadog-axi-ctx (local config only; no keychain, no network)",
@@ -75,16 +102,26 @@ export async function setupCommand(args: string[]): Promise<Record<string, unkno
 function readClaudeSettings(path: string): Record<string, unknown> | undefined {
   try {
     const value: unknown = JSON.parse(readFileSync(path, "utf8"));
-    if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+    if (!value || typeof value !== "object" || Array.isArray(value))
+      throw new Error("Claude settings must contain a JSON object");
     const settings = Object.fromEntries(Object.entries(value));
     if ("hooks" in settings && (!settings.hooks || typeof settings.hooks !== "object" || Array.isArray(settings.hooks)))
-      return undefined;
+      throw new Error("Claude hooks must contain an object");
     const hooks = settings.hooks as Record<string, unknown> | undefined;
-    if (hooks && "SessionEnd" in hooks && !Array.isArray(hooks.SessionEnd)) return undefined;
+    if (hooks && "SessionEnd" in hooks && !Array.isArray(hooks.SessionEnd))
+      throw new Error("Claude SessionEnd hooks must contain an array");
     return settings;
-  } catch {
-    return existsSync(path) ? undefined : {};
+  } catch (error) {
+    if (!existsSync(path)) return {};
+    throw setupFailure("reading", path, error);
   }
+}
+
+function setupFailure(action: string, path: string, error: unknown): AxiError {
+  const detail = error instanceof Error ? error.message : String(error);
+  return new AxiError(`Could not complete hook ${action} at ${path}: ${detail}`, "SETUP_FAILED", [
+    "Check the settings path and permissions, then retry setup",
+  ]);
 }
 
 function claudeHookGroups(path: string): {
