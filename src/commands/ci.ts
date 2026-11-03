@@ -223,7 +223,7 @@ async function priorityPage(
 ) {
   const events: CIEvent[] = [];
   let redacted = 0;
-  const failure = kind === "pipelines" ? "@ci.status:(error OR failed OR fail)" : "@test.status:fail";
+  const failure = kind === "pipelines" ? "@ci.status:(error OR failed OR fail OR canceled)" : "@test.status:fail";
   for (const phase of other ? ["other"] : ["failed", "other"]) {
     const result = await seam.call<EventsResponse>(`ci.${kind}.search`, {
       body: {

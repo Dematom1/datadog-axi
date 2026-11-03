@@ -86,6 +86,24 @@ describe("CI Visibility", () => {
     expect(JSON.stringify(fetch.calls[3]?.body)).toContain("AND -@ci.status");
   });
 
+  it("prioritizes canceled pipeline runs over successes across pagination partitions", async () => {
+    const event = (id: string, status: string) => ({ id, attributes: { attributes: { "ci.status": status } } });
+    const fetch = fakeFetch({
+      "POST /api/v2/ci/pipelines/events/search": [
+        { body: { data: [event("canceled-run", "canceled")] } },
+        { body: { data: [event("successful-run", "success")] } },
+      ],
+      "POST /api/v2/ci/pipelines/analytics/aggregate": { body: fixtures.total },
+    });
+    const rt = makeRuntime({ env, fetch });
+    const result = await ciCommand(["pipelines", "--limit", "2", ...window], rt);
+    expect(result.pipelines).toMatchObject([{ id: "canceled-run" }, { id: "successful-run" }]);
+    expect(fetch.calls[0]?.body).toMatchObject({
+      filter: { query: "(ci_level:pipeline AND (*)) AND @ci.status:(error OR failed OR fail OR canceled)" },
+    });
+    expect(JSON.stringify(fetch.calls[1]?.body)).toContain("AND -@ci.status");
+  });
+
   it("passes the cursor to the supported search page without following links", async () => {
     const { rt, fetch } = runtime("pipelines", fixtures.pipeline_next);
     const out = await ciCommand(["pipelines", ...window, "--cursor", "other:fixture-next-page"], rt);
