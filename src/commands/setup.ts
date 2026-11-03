@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   AxiError,
@@ -307,13 +307,19 @@ function sessionEndHookCommand(): string {
   return `${quoteExecutable(resolveCliEntrypoint())} context end`;
 }
 
+function isDatadogSessionEndCommand(command: string | undefined): boolean {
+  if (!command?.endsWith(" context end")) return false;
+  const executable = command.slice(0, -" context end".length).replace(/^(?:"(.*)"|'(.*)')$/, "$1$2");
+  return ["datadog-axi", "datadog-axi.js", "datadog-axi.ts"].includes(basename(executable));
+}
+
 function hasClaudeSessionEndHook(path: string): boolean {
   const command = sessionEndHookCommand();
   return claudeHookGroups(path).groups.some(
     (group) =>
       Array.isArray(group.hooks) &&
       group.hooks.some(
-        (hook: { command?: string }) => hook.command === command || !!hook.command?.includes("datadog-axi"),
+        (hook: { command?: string }) => hook.command === command || isDatadogSessionEndCommand(hook.command),
       ),
   );
 }
@@ -325,7 +331,7 @@ function removeClaudeSessionEndHook(path: string): boolean {
   const next = groups.flatMap((group) => {
     if (!Array.isArray(group.hooks)) return [group];
     const remaining = group.hooks.filter((hook: { command?: string }) => {
-      const matches = hook.command === command || !!hook.command?.includes("datadog-axi");
+      const matches = hook.command === command || isDatadogSessionEndCommand(hook.command);
       removed ||= matches;
       return !matches;
     });
@@ -350,7 +356,7 @@ function installClaudeSessionEndHook(path: string): boolean {
   const repaired = groups.flatMap((group) => {
     if (!Array.isArray(group.hooks)) return [group];
     const entries = group.hooks.flatMap((hook: { command?: string }) => {
-      if (!hook.command?.includes("datadog-axi")) return [hook];
+      if (!isDatadogSessionEndCommand(hook.command)) return [hook];
       if (found) return [];
       found = true;
       return [{ ...hook, command, type: "command", timeout: 30 }];

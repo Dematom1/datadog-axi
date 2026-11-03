@@ -64,6 +64,7 @@ describe("setup repair", () => {
         const base = project ? cwd : home;
         const paths = [join(base, ".claude", "settings.json"), join(base, ".codex", "hooks.json")];
         const foreign = { command: "other-tool --context" };
+        const foreignSessionEnd = { command: "my-datadog-axi-audit" };
         for (const path of paths) {
           mkdirSync(dirname(path), { recursive: true });
           writeFileSync(
@@ -79,6 +80,7 @@ describe("setup repair", () => {
                         {
                           hooks: [
                             foreign,
+                            foreignSessionEnd,
                             { command: "datadog-axi context end" },
                             { command: "/old/datadog-axi context end" },
                           ],
@@ -103,7 +105,8 @@ describe("setup repair", () => {
           for (const groups of Object.values(readSettings(path).hooks)) {
             const commands = groups.flatMap((group) => group.hooks);
             expect(commands).toContainEqual(foreign);
-            const managed = commands.filter((hook) => hook.command.includes("datadog-axi"));
+            if (path === paths[0]) expect(commands).toContainEqual(foreignSessionEnd);
+            const managed = commands.filter((hook) => hook.command.includes("datadog-axi") && hook !== foreignSessionEnd);
             expect(managed).toHaveLength(1);
             for (const hook of managed) {
               expect(hook.command).toMatch(/^"\//);
@@ -118,7 +121,9 @@ describe("setup repair", () => {
         setup("uninstall");
         for (const path of paths) {
           for (const groups of Object.values(readSettings(path).hooks)) {
-            expect(groups.flatMap((group) => group.hooks)).toEqual([foreign]);
+            expect(groups.flatMap((group) => group.hooks)).toEqual(
+              path === paths[0] ? [foreign, foreignSessionEnd] : [foreign],
+            );
           }
         }
         const plugin = project
