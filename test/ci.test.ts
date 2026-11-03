@@ -56,7 +56,7 @@ describe("CI Visibility", () => {
     expect(out.stdout).toContain("redacted:");
     expect(fetch.calls[0]?.body).toMatchObject({
       filter: {
-        query: "(ci_level:pipeline AND (*)) AND @ci.status:(error OR failed OR fail)",
+        query: "(ci_level:pipeline AND (*)) AND @ci.status:(error OR failed OR fail OR canceled)",
         from: "2026-10-28T11:00:00Z",
         to: "2026-10-28T12:00:00Z",
       },
