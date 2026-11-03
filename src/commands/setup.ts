@@ -8,6 +8,7 @@ import {
   computeSessionStartHookUpdate,
   installSessionStartHooks,
   sessionStartHookStatus,
+  uninstallSessionStartHooks,
 } from "axi-sdk-js";
 import { bool, parseArgs, type CommandSpec } from "../args.js";
 import { renderHelp } from "../help.js";
@@ -32,7 +33,7 @@ export const SETUP_HELP = renderHelp({
         "The hook runs `datadog-axi-ctx`: org, site and credential source from local config only; no keychain, no network",
     },
     { spec: STATUS, summary: "Show whether the Claude Code SessionEnd hook is installed" },
-    { spec: UNINSTALL, summary: "Remove the Claude Code SessionEnd hook" },
+    { spec: UNINSTALL, summary: "Remove datadog-axi SessionStart hooks and the Claude Code SessionEnd hook" },
   ],
   examples: ["datadog-axi setup hooks", "datadog-axi setup hooks --project"],
 });
@@ -57,6 +58,7 @@ export async function setupCommand(args: string[]): Promise<Record<string, unkno
     };
   }
   if (args[0] === "uninstall") {
+    uninstallSessionStartHooks({ marker: "datadog-axi", scope: bool(parsed, "--project") ? "project" : "user" });
     let removed: boolean;
     try {
       removed = removeClaudeSessionEndHook(settingsPath);

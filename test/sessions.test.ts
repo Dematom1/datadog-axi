@@ -133,6 +133,10 @@ describe("session memory", () => {
       path,
       JSON.stringify({
         hooks: {
+          SessionStart: [
+            { hooks: [{ type: "command", command: "datadog-axi-ctx # datadog-axi" }] },
+            { hooks: [{ type: "command", command: "other-tool" }] },
+          ],
           SessionEnd: [
             {
               matcher: "",
@@ -160,6 +164,7 @@ describe("session memory", () => {
     }
     expect(JSON.parse(readFileSync(path, "utf8"))).toEqual({
       hooks: {
+        SessionStart: [{ hooks: [{ type: "command", command: "other-tool" }] }],
         SessionEnd: [
           { matcher: "", hooks: [{ type: "command", command: "other-tool context end" }] },
           { matcher: "other", hooks: "preserve-this-group" },
