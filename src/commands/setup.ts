@@ -58,12 +58,30 @@ export async function setupCommand(args: string[]): Promise<Record<string, unkno
     };
   }
   if (args[0] === "uninstall") {
-    uninstallSessionStartHooks({ marker: "datadog-axi", scope: bool(parsed, "--project") ? "project" : "user" });
-    let removed: boolean;
+    const errors: string[] = [];
+    uninstallSessionStartHooks({
+      marker: "datadog-axi",
+      scope: bool(parsed, "--project") ? "project" : "user",
+      onError: (message) => errors.push(message),
+    });
+    try {
+      const settings = readClaudeSettings(settingsPath);
+      const [updated, changed] = computeSessionStartHookRemoval(settings, "datadog-axi");
+      if (changed) {
+        mkdirSync(dirname(settingsPath), { recursive: true, mode: 0o700 });
+        writeFileSync(settingsPath, `${JSON.stringify(updated, null, 2)}\n`, { mode: 0o600 });
+      }
+    } catch (error) {
+      errors.push(setupFailure("removal", settingsPath, error).message);
+    }
+    let removed = false;
     try {
       removed = removeClaudeSessionEndHook(settingsPath);
     } catch (error) {
-      throw setupFailure("removal", settingsPath, error);
+      errors.push(setupFailure("removal", settingsPath, error).message);
+    }
+    if (errors.length > 0) {
+      throw new AxiError(`Hook removal reported problems: ${errors.join("; ")}`, "SETUP_FAILED");
     }
     const remains = hasClaudeSessionEndHook(settingsPath);
     return { hooks: { claude_session_end: remains ? "still installed" : removed ? "removed" : "not installed" } };

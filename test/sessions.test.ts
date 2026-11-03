@@ -125,7 +125,7 @@ describe("session memory", () => {
 
   it("preserves unrecognized SessionEnd groups on uninstall", async () => {
     const home = mkdtempSync(join(tmpdir(), "datadog-axi-setup-"));
-    const path = join(home, ".claude", "settings.json");
+    const path = join(home, "custom-claude", "settings.json");
     mkdirSync(dirname(path), { recursive: true });
     const hookPath = join(dirname(fileURLToPath(import.meta.url)), "../bin/datadog-axi.ts");
     const command = `'${hookPath.replace(/'/g, "'\\''")}' context end`;
@@ -153,7 +153,7 @@ describe("session memory", () => {
     const oldHome = process.env.HOME;
     const oldClaudeConfig = process.env.CLAUDE_CONFIG_DIR;
     process.env.HOME = home;
-    process.env.CLAUDE_CONFIG_DIR = join(home, ".claude");
+    process.env.CLAUDE_CONFIG_DIR = dirname(path);
     try {
       await setupCommand(["uninstall"]);
     } finally {
@@ -162,6 +162,7 @@ describe("session memory", () => {
       if (oldClaudeConfig === undefined) delete process.env.CLAUDE_CONFIG_DIR;
       else process.env.CLAUDE_CONFIG_DIR = oldClaudeConfig;
     }
+    expect(existsSync(join(home, ".claude", "settings.json"))).toBe(false);
     expect(JSON.parse(readFileSync(path, "utf8"))).toEqual({
       hooks: {
         SessionStart: [{ hooks: [{ type: "command", command: "other-tool" }] }],
@@ -171,6 +172,25 @@ describe("session memory", () => {
         ],
       },
     });
+  });
+
+  it("reports SessionStart uninstall errors", async () => {
+    const home = mkdtempSync(join(tmpdir(), "datadog-axi-uninstall-"));
+    const codexHooks = join(home, ".codex", "hooks.json");
+    mkdirSync(dirname(codexHooks), { recursive: true });
+    writeFileSync(codexHooks, "{");
+    const oldHome = process.env.HOME;
+    const oldClaudeConfig = process.env.CLAUDE_CONFIG_DIR;
+    process.env.HOME = home;
+    process.env.CLAUDE_CONFIG_DIR = join(home, ".claude");
+    try {
+      await expect(setupCommand(["uninstall"])).rejects.toMatchObject({ code: "SETUP_FAILED" });
+    } finally {
+      if (oldHome === undefined) delete process.env.HOME;
+      else process.env.HOME = oldHome;
+      if (oldClaudeConfig === undefined) delete process.env.CLAUDE_CONFIG_DIR;
+      else process.env.CLAUDE_CONFIG_DIR = oldClaudeConfig;
+    }
   });
 
   it("rejects malformed project hooks before installing SessionStart hooks", async () => {
