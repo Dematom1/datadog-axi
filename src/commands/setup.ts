@@ -81,7 +81,9 @@ export async function setupCommand(args: string[]): Promise<Record<string, unkno
       errors.push(setupFailure("removal", settingsPath, error).message);
     }
     if (errors.length > 0) {
-      throw new AxiError(`Hook removal reported problems: ${errors.join("; ")}`, "SETUP_FAILED");
+      throw new AxiError(`Hook removal reported problems: ${errors.join("; ")}`, "SETUP_FAILED", [
+        "Check the affected paths and permissions, then retry `datadog-axi setup uninstall`",
+      ]);
     }
     const remains = hasClaudeSessionEndHook(settingsPath);
     return { hooks: { claude_session_end: remains ? "still installed" : removed ? "removed" : "not installed" } };
@@ -95,11 +97,30 @@ export async function setupCommand(args: string[]): Promise<Record<string, unkno
   installSessionStartHooks({
     marker: "datadog-axi",
     execPath: resolveCtxEntrypoint(),
-    binaryNames: ["datadog-axi-ctx"],
+    binaryNames: [],
     distEntrypoints: ["dist/bin/datadog-axi-ctx.js"],
     scope: bool(parsed, "--project") ? "project" : "user",
     onError: (message) => errors.push(message),
   });
+  // axi-sdk-js repairs only the first entry and stores an unquoted path in JSON hooks.
+  // Keep its OpenCode plugin's raw executable path, but dedupe and shell-quote JSON commands.
+  const targets = sessionStartHookStatus({
+    marker: "datadog-axi",
+    scope: bool(parsed, "--project") ? "project" : "user",
+  });
+  for (const path of new Set([targets.claude.path, targets.codex.path])) {
+    try {
+      const settings = readClaudeSettings(path);
+      const [cleaned] = computeSessionStartHookRemoval(settings, "datadog-axi");
+      const [updated] = computeSessionStartHookUpdate(cleaned, {
+        marker: "datadog-axi",
+        command: quoteExecutable(resolveCtxEntrypoint()),
+      });
+      writeFileSync(path, `${JSON.stringify(updated, null, 2)}\n`, { mode: 0o600 });
+    } catch (error) {
+      errors.push(setupFailure("repairing", path, error).message);
+    }
+  }
   try {
     if (!installClaudeSessionEndHook(settingsPath))
       errors.push(`Could not safely update Claude settings at ${settingsPath}`);
@@ -278,25 +299,37 @@ function claudeHookGroups(path: string): {
   };
 }
 
+function quoteExecutable(path: string): string {
+  return `"${path.replace(/(["\\$`])/g, "\\$1")}"`;
+}
+
 function sessionEndHookCommand(): string {
-  return `'${resolveCliEntrypoint().replace(/'/g, "'\\''")}' context end`;
+  return `${quoteExecutable(resolveCliEntrypoint())} context end`;
+}
+
+function isSessionEndCommand(command: unknown): boolean {
+  if (typeof command !== "string") return false;
+  if (command === sessionEndHookCommand() || command === "datadog-axi context end") return true;
+  // Earlier installs stored an absolute executable, sometimes single-quoted.
+  return /^(?:\/[\w./-]+\/datadog-axi(?:\.[jt]s)?|'(?:[^']|'\\'')*\/datadog-axi(?:\.[jt]s)?'|"(?:[^"\\]|\\.)*\/datadog-axi(?:\.[jt]s)?") context end$/.test(
+    command,
+  );
 }
 
 function hasClaudeSessionEndHook(path: string): boolean {
-  const command = sessionEndHookCommand();
   return claudeHookGroups(path).groups.some(
-    (group) => Array.isArray(group.hooks) && group.hooks.some((hook: { command?: string }) => hook.command === command),
+    (group) =>
+      Array.isArray(group.hooks) && group.hooks.some((hook: { command?: string }) => isSessionEndCommand(hook.command)),
   );
 }
 
 function removeClaudeSessionEndHook(path: string): boolean {
   const { settings, hooks, groups } = claudeHookGroups(path);
   let removed = false;
-  const command = sessionEndHookCommand();
   const next = groups.flatMap((group) => {
     if (!Array.isArray(group.hooks)) return [group];
     const remaining = group.hooks.filter((hook: { command?: string }) => {
-      const matches = hook.command === command;
+      const matches = isSessionEndCommand(hook.command);
       removed ||= matches;
       return !matches;
     });
@@ -317,15 +350,19 @@ function installClaudeSessionEndHook(path: string): boolean {
   const hooks = settings.hooks && typeof settings.hooks === "object" ? (settings.hooks as Record<string, unknown>) : {};
   const groups = Array.isArray(hooks.SessionEnd) ? (hooks.SessionEnd as Array<Record<string, unknown>>) : [];
   const command = sessionEndHookCommand();
-  if (
-    !groups.some(
-      (group) =>
-        Array.isArray(group.hooks) && group.hooks.some((hook: { command?: string }) => hook.command === command),
-    )
-  ) {
-    groups.push({ matcher: "", hooks: [{ type: "command", command, timeout: 30 }] });
-  }
-  hooks.SessionEnd = groups;
+  let found = false;
+  const repaired = groups.flatMap((group) => {
+    if (!Array.isArray(group.hooks)) return [group];
+    const entries = group.hooks.flatMap((hook: { command?: string }) => {
+      if (!isSessionEndCommand(hook.command)) return [hook];
+      if (found) return [];
+      found = true;
+      return [{ ...hook, command, type: "command", timeout: 30 }];
+    });
+    return entries.length ? [{ ...group, hooks: entries }] : [];
+  });
+  if (!found) repaired.push({ matcher: "", hooks: [{ type: "command", command, timeout: 30 }] });
+  hooks.SessionEnd = repaired;
   settings.hooks = hooks;
   mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
   writeFileSync(path, `${JSON.stringify(settings, null, 2)}\n`, { mode: 0o600 });

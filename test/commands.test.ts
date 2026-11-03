@@ -10,6 +10,12 @@ import { ENV_KEYS, fakeFetch, fakePup, fixture, makeRuntime, run } from "./helpe
 const EU = { ...ENV_KEYS, DD_SITE: "datadoghq.eu" };
 
 describe("home view", () => {
+  it("shows real help for the Claude SessionEnd route", async () => {
+    const { stdout, exitCode } = await run(["context", "end", "--help"], makeRuntime());
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("command: datadog-axi context end");
+    expect(stdout).toContain("SessionEnd");
+  });
   it("shows the offline ctx block and makes no request without credentials", async () => {
     const fetch = fakeFetch({});
     const { stdout, exitCode } = await run([], makeRuntime({ fetch }));

@@ -211,6 +211,12 @@ export async function updateCommand(
 export async function main(options: MainOptions = {}): Promise<void> {
   const argv = options.argv ?? process.argv.slice(2);
   if (argv[0] === "context" && argv[1] === "end") {
+    if (argv.includes("--help") || argv.includes("-h")) {
+      (options.stdout ?? process.stdout).write(
+        "command: datadog-axi context end\ndescription: Record the end of an agent session from Claude Code's SessionEnd hook\nexamples[1]:\n  datadog-axi context end < session.json\n",
+      );
+      return;
+    }
     (options.stdout ?? process.stdout).write(await contextEndCommand());
     return;
   }
