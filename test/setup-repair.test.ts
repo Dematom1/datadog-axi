@@ -106,7 +106,9 @@ describe("setup repair", () => {
             const commands = groups.flatMap((group) => group.hooks);
             expect(commands).toContainEqual(foreign);
             if (path === paths[0]) expect(commands).toContainEqual(foreignSessionEnd);
-            const managed = commands.filter((hook) => hook.command.includes("datadog-axi") && hook !== foreignSessionEnd);
+            const managed = commands.filter(
+              (hook) => hook.command.includes("datadog-axi") && hook.command !== foreignSessionEnd.command,
+            );
             expect(managed).toHaveLength(1);
             for (const hook of managed) {
               expect(hook.command).toMatch(/^"\//);
