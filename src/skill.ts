@@ -7,7 +7,7 @@ import { DESCRIPTION, TOP_HELP } from "./cli.js";
  */
 
 export const SKILL_DESCRIPTION =
-  "Read Datadog through the datadog-axi CLI - monitors, logs, metrics, APM traces, incidents, dashboards, events, hosts, SLOs, downtimes, synthetics, notebooks and allowlisted read-only API calls. " +
+  "Read Datadog through the datadog-axi CLI - monitors, logs, metrics, APM traces, incidents, CI pipeline runs and failing/flaky tests, dashboards, events, hosts, SLOs, downtimes, synthetics, notebooks and allowlisted read-only API calls. " +
   "Use whenever a task needs Datadog data: checking what is alerting, searching or counting logs, querying a metric, finding slow or failing traces, reviewing incidents, or reading a dashboard's queries.";
 
 function extractCommandsBlock(): string {
@@ -56,7 +56,7 @@ Each stored org is pinned to its site; \`WRONG_SITE\` means \`--site\` disagrees
 
 ## When to use
 
-Use datadog-axi whenever a task needs Datadog data: what is alerting and why, error logs for a service, log counts by facet, a metric's recent values, slow or failing traces, open incidents, a dashboard's queries, recent deploy events, host state, SLO health, active downtimes, synthetic test results, or a notebook's content.
+Use datadog-axi whenever a task needs Datadog data: what is alerting and why, error logs for a service, log counts by facet, a metric's recent values, slow or failing traces, open incidents, failed pipelines or flaky tests (\`ci pipelines\`, \`ci tests\`, \`ci view <id>\`), a dashboard's queries, recent deploy events, host state, SLO health, active downtimes, synthetic test results, or a notebook's content.
 
 ## Workflow
 

@@ -1,0 +1,103 @@
+{
+  "_source": [
+    "https://docs.datadoghq.com/api/latest/ci-visibility-pipelines/search-pipelines-events/",
+    "https://docs.datadoghq.com/api/latest/ci-visibility-pipelines/aggregate-pipelines-events/",
+    "https://docs.datadoghq.com/api/latest/ci-visibility-tests/search-tests-events/",
+    "https://docs.datadoghq.com/api/latest/ci-visibility-tests/aggregate-tests-events/",
+    "https://github.com/DataDog/datadog-api-client-typescript/blob/master/examples/v1/monitors/CreateMonitor_3790803616.ts",
+    "https://github.com/datadog/pup/blob/main/skills/dd-triage-flaky-test/SKILL.md"
+  ],
+  "_note": "Synthetic fixtures adapted from documented data/attributes/attributes, meta.page.after, buckets/by/computes and errors shapes. Values and counts are invented, not recordings of a live org. Generic 403/429 examples use the documented errors array; the permission-specific text is an illustrative variant.",
+  "pipelines": {
+    "data": [
+      {
+        "id": "pipeline-pass",
+        "type": "cipipeline",
+        "attributes": {
+          "ci_level": "pipeline",
+          "attributes": {
+            "ci": { "pipeline": { "name": "build" }, "status": "success", "provider": { "name": "github" } },
+            "duration": 2000000000,
+            "git": { "branch": "main" }
+          }
+        }
+      },
+      {
+        "id": "pipeline-fail",
+        "type": "cipipeline",
+        "attributes": {
+          "ci_level": "pipeline",
+          "tags": ["team:platform", "token:hidden-fixture-tag"],
+          "attributes": {
+            "ci.status": "error",
+            "ci.pipeline.name": "deploy",
+            "ci.provider.name": "gitlab",
+            "duration": 45000000000,
+            "git.branch": "fix-ci",
+            "token": "hidden-fixture-secret"
+          }
+        }
+      }
+    ],
+    "meta": { "status": "done", "page": { "after": "fixture-next-page" } }
+  },
+  "pipeline_next": {
+    "data": [
+      {
+        "id": "pipeline-next",
+        "type": "cipipeline",
+        "attributes": { "ci_level": "pipeline", "attributes": { "ci.status": "success", "ci.pipeline.name": "lint" } }
+      }
+    ],
+    "meta": { "status": "done" }
+  },
+  "tests": {
+    "data": [
+      {
+        "id": "test-flaky",
+        "type": "citest",
+        "attributes": {
+          "test_level": "test",
+          "attributes": {
+            "test": { "name": "checkout", "suite": "browser", "service": "web", "status": "pass", "is_flaky": true }
+          }
+        }
+      },
+      {
+        "id": "test-fail",
+        "type": "citest",
+        "attributes": {
+          "test_level": "test",
+          "attributes": {
+            "test.name": "checkout",
+            "test.suite": "unit",
+            "test.service": "web",
+            "test.status": "fail",
+            "test.is_flaky": false,
+            "error": { "message": "assertion failed" },
+            "password": "hidden-test-secret"
+          }
+        }
+      }
+    ],
+    "meta": { "status": "done" }
+  },
+  "empty": { "data": [], "meta": { "status": "done" } },
+  "total": { "data": { "buckets": [{ "by": {}, "computes": { "c0": 3 } }] }, "meta": { "status": "done" } },
+  "zero": { "data": { "buckets": [{ "by": {}, "computes": { "c0": 0 } }] }, "meta": { "status": "done" } },
+  "failures": {
+    "data": {
+      "buckets": [
+        { "by": { "@test.name": "checkout", "@test.suite": "unit", "@test.service": "web" }, "computes": { "c0": 12 } },
+        {
+          "by": { "@test.name": "checkout", "@test.suite": "browser", "@test.service": "web" },
+          "computes": { "c0": 2 }
+        }
+      ]
+    },
+    "meta": { "status": "done" }
+  },
+  "forbidden": { "errors": ["Forbidden"] },
+  "missing_scope": { "errors": ["Missing permission ci_visibility_read"] },
+  "rate_limited": { "errors": ["Too many requests"] }
+}

@@ -1,6 +1,6 @@
 ---
 name: datadog-axi
-description: "Read Datadog through the datadog-axi CLI - monitors, logs, metrics, APM traces, incidents, dashboards, events, hosts, SLOs, downtimes, synthetics, notebooks and allowlisted read-only API calls. Use whenever a task needs Datadog data: checking what is alerting, searching or counting logs, querying a metric, finding slow or failing traces, reviewing incidents, or reading a dashboard's queries."
+description: "Read Datadog through the datadog-axi CLI - monitors, logs, metrics, APM traces, incidents, CI pipeline runs and failing/flaky tests, dashboards, events, hosts, SLOs, downtimes, synthetics, notebooks and allowlisted read-only API calls. Use whenever a task needs Datadog data: checking what is alerting, searching or counting logs, querying a metric, finding slow or failing traces, reviewing incidents, or reading a dashboard's queries."
 user-invocable: false
 ---
 
@@ -27,7 +27,7 @@ Each stored org is pinned to its site; `WRONG_SITE` means `--site` disagrees wit
 
 ## When to use
 
-Use datadog-axi whenever a task needs Datadog data: what is alerting and why, error logs for a service, log counts by facet, a metric's recent values, slow or failing traces, open incidents, a dashboard's queries, recent deploy events, host state, SLO health, active downtimes, synthetic test results, or a notebook's content.
+Use datadog-axi whenever a task needs Datadog data: what is alerting and why, error logs for a service, log counts by facet, a metric's recent values, slow or failing traces, open incidents, failed pipelines or flaky tests (`ci pipelines`, `ci tests`, `ci view <id>`), a dashboard's queries, recent deploy events, host state, SLO health, active downtimes, synthetic test results, or a notebook's content.
 
 ## Workflow
 
@@ -41,9 +41,9 @@ Use datadog-axi whenever a task needs Datadog data: what is alerting and why, er
 ## Commands
 
 ```
-commands[19]:
-  (none)=home, monitors, logs, metrics, traces, services, dashboards, incidents, events, hosts, slos, downtimes, synthetics, notebooks, api, auth, doctor, ctx, setup
-summary[19]:
+commands[20]:
+  (none)=home, monitors, logs, metrics, traces, services, dashboards, incidents, events, hosts, slos, downtimes, synthetics, notebooks, ci, api, auth, doctor, ctx, setup
+summary[20]:
   (none): Live home view - org, site, monitor counts, alerting monitors, open incidents
   monitors: Search monitors (problems first, status counts) and view one
   logs: Search log events, count them by facet, view one event
@@ -58,6 +58,7 @@ summary[19]:
   downtimes: List downtimes that silence monitors
   synthetics: List synthetic tests; view one; latest results
   notebooks: List notebooks; read one cell by cell
+  ci: Recent pipeline runs, failing/flaky tests with failure counts, event detail
   api: Call an allowlisted read-only API endpoint directly
   auth: Credential setup guide (pup login or keys); store, check, list and remove credentials (OS keychain per org)
   doctor: Keys, site reachability, readable domains, rate limits, write capability

@@ -71,21 +71,23 @@ Credentials are resolved in this order. A secret is never accepted as a flag, ne
 
 Select only the read scopes datadog-axi needs, for the pup login or the application key:
 
-| Domain                        | Scopes                                   |
-| ----------------------------- | ---------------------------------------- |
-| monitors (and the home view)  | `monitors_read`                          |
-| logs                          | `logs_read_data`, `logs_read_index_data` |
-| metrics                       | `metrics_read`, `timeseries_query`       |
-| traces                        | `apm_read`                               |
-| services                      | `apm_service_catalog_read`               |
-| dashboards                    | `dashboards_read`                        |
-| incidents (and the home view) | `incident_read`                          |
-| events                        | `events_read`                            |
-| hosts                         | `hosts_read`                             |
-| slos                          | `slos_read`                              |
-| synthetics                    | `synthetics_read`                        |
-| notebooks                     | `notebooks_read`                         |
-| downtimes (optional)          | `monitors_downtime`                      |
+| Domain                        | Scopes                                                                             |
+| ----------------------------- | ---------------------------------------------------------------------------------- |
+| monitors (and the home view)  | `monitors_read`                                                                    |
+| logs                          | `logs_read_data`, `logs_read_index_data`                                           |
+| metrics                       | `metrics_read`, `timeseries_query`                                                 |
+| traces                        | `apm_read`                                                                         |
+| CI pipelines                  | `ci_visibility_read`                                                               |
+| CI tests                      | `ci_visibility_read` or `test_optimization_read` (OAuth: `test_optimization_read`) |
+| services                      | `apm_service_catalog_read`                                                         |
+| dashboards                    | `dashboards_read`                                                                  |
+| incidents (and the home view) | `incident_read`                                                                    |
+| events                        | `events_read`                                                                      |
+| hosts                         | `hosts_read`                                                                       |
+| slos                          | `slos_read`                                                                        |
+| synthetics                    | `synthetics_read`                                                                  |
+| notebooks                     | `notebooks_read`                                                                   |
+| downtimes (optional)          | `monitors_downtime`                                                                |
 
 Datadog's downtime list requires `monitors_downtime` (Manage Downtimes), which can also mute monitors. So it is not read-only, and `doctor` reports a key that has it as able to write. Leave it out unless you need `downtimes list`. When a domain is denied, `auth status` and `doctor` name the scopes that would allow it.
 
@@ -115,6 +117,9 @@ Each Datadog site is fully independent, so the same query on the wrong site just
 | `metrics query "<expr>"`                                      | Per-series summary (n, min, avg, max, last); `--points` for raw values                                                |
 | `metrics list`, `search <text>`, `view <name>`, `tags <name>` | Names, metadata and volume, tag cardinality                                                                           |
 | `traces search "<query>"`                                     | Spans (service, resource, duration, error)                                                                            |
+| `ci pipelines`                                                | Recent pipeline events: ID, name, status, duration in seconds, branch, provider; failures first across pages          |
+| `ci tests`                                                    | Failing/flaky test events with failure counts over the query/window; default and maximum 20 events                    |
+| `ci view <id> [--kind pipelines\|tests]`                      | Exact event ID lookup in up to 1000 recent events; `--query`, `--from`, `--to`, `--full`                              |
 | `traces view <trace_id>`                                      | Summarized span tree                                                                                                  |
 | `services list`, `view <name>`                                | Ownership, contacts and links from the service catalog                                                                |
 | `dashboards list`, `view <id>`                                | Widget titles and queries; the full JSON with `--full`                                                                |
@@ -135,6 +140,19 @@ Each Datadog site is fully independent, so the same query on the wrong site just
 `update --check` reports the installed version, latest version, manager and resolved executable path, and exits successfully for manual cases. When a manual action is required, it reports `action: manual`, `result: not updated`, and the exact instruction. For writable installs, `update` uses the matching installer: npm, pnpm, yarn, bun, Volta, the active Node version manager's npm, or Homebrew's `brew upgrade <formula>`. Other cases exit 2 with `MANUAL_UPDATE_REQUIRED`, `result: not updated`, `action: manual`, the manager and path, and a plain `Nothing was updated.` message followed by the exact instruction. It never runs an installer for manual cases: Nix installs require a config change and rebuild; system-package installs use apt/dnf/pacman/apk guidance; project-local installs update through their package manager; npx, pnpm dlx and bunx caches fetch on the next run; and linked checkouts require `git pull` and a rebuild. Unknown installs are never assigned a guessed installer.
 
 Run `datadog-axi --help`, or `datadog-axi <command> --help` for one command's flags and examples.
+
+### CI Visibility
+
+`ci pipelines` and `ci tests` accept `--query`, `--from`, `--to`, `--limit`, `--cursor`, and `--fields`.
+Failures come first across pages, newest first within each status partition. Pipeline pages default to 20 events (maximum 200).
+Test failure counts cover the entire query/window for the same test name, suite, and service. Retries count as separate failures.
+Flaky events use the documented `@test.is_flaky:true` facet, including passing flaky runs.
+Totals count events, not distinct test names. A window with CI data but no matching failures is not reported as an empty org.
+
+Datadog has no CI event get-by-ID endpoint. `ci view` scans at most ten search pages of 100 events and checks the exact response ID.
+Use the list's absolute window and `--kind tests` for test IDs. If the scan limit is reached, narrow the window or add `--query`.
+A successful empty read says `No CI Visibility data for this org in the time window`. A 403 stays `FORBIDDEN` and names the required scopes.
+The six [pipeline](https://docs.datadoghq.com/api/latest/ci-visibility-pipelines/) and [test](https://docs.datadoghq.com/api/latest/ci-visibility-tests/) list, search, and aggregate endpoints are also available through `api`. POST search and aggregate calls are read-only.
 
 ### Conventions
 

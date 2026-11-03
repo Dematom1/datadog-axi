@@ -26,6 +26,7 @@ export const DOMAIN_SCOPES: readonly DomainScopes[] = [
   { domain: "logs", scopes: ["logs_read_data", "logs_read_index_data"] },
   { domain: "metrics", scopes: ["metrics_read", "timeseries_query"] },
   { domain: "traces", scopes: ["apm_read"] },
+  { domain: "ci", scopes: ["ci_visibility_read", "test_optimization_read"] },
   { domain: "services", scopes: ["apm_service_catalog_read"] },
   { domain: "dashboards", scopes: ["dashboards_read"] },
   { domain: "incidents", scopes: ["incident_read"] },

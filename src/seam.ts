@@ -272,7 +272,7 @@ export class Seam {
         throw this.unreachable(timedOut ? "the response timed out" : "the response was cut off");
       }
       if (!response.ok) {
-        throw this.translate(response.status, text);
+        throw this.translate(response.status, text, op);
       }
 
       let parsed: unknown = null;
@@ -298,7 +298,7 @@ export class Seam {
     ]);
   }
 
-  private translate(status: number, body: string): AxiError {
+  private translate(status: number, body: string, op: Operation): AxiError {
     const { org, site } = this.options.target;
     const detail = extractErrorDetail(body);
     const orgFlag = this.options.target.source === "keychain" ? ` --org ${org}` : "";
@@ -326,6 +326,13 @@ export class Seam {
         "FORBIDDEN",
         [
           "The application key's scopes or the user's role do not allow this read",
+          ...(op.domain === "ci"
+            ? [
+                op.id.startsWith("ci.tests.")
+                  ? "CI tests require ci_visibility_read or test_optimization_read; OAuth requires test_optimization_read"
+                  : "CI pipelines require ci_visibility_read",
+              ]
+            : []),
           `Run \`datadog-axi auth status${orgFlag}\` to see which domains are readable`,
         ],
       );
