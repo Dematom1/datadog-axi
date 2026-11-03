@@ -59,6 +59,7 @@ export async function setupCommand(args: string[]): Promise<Record<string, unkno
   }
   if (args[0] === "uninstall") {
     const errors: string[] = [];
+    const sessionEndBeforeUninstall = readClaudeSettings(settingsPath).hooks;
     uninstallSessionStartHooks({
       marker: "datadog-axi",
       scope: bool(parsed, "--project") ? "project" : "user",
@@ -66,7 +67,17 @@ export async function setupCommand(args: string[]): Promise<Record<string, unkno
     });
     try {
       const settings = readClaudeSettings(settingsPath);
+      const hooks = settings.hooks && typeof settings.hooks === "object"
+        ? settings.hooks as Record<string, unknown>
+        : {};
+      const sessionEnd = sessionEndBeforeUninstall && typeof sessionEndBeforeUninstall === "object"
+        ? (sessionEndBeforeUninstall as Record<string, unknown>).SessionEnd
+        : undefined;
       const [updated, changed] = computeSessionStartHookRemoval(settings, "datadog-axi");
+      if (hooks && sessionEnd !== undefined) {
+        const updatedHooks = updated.hooks as Record<string, unknown> | undefined;
+        if (updatedHooks) updatedHooks.SessionEnd = sessionEnd;
+      }
       if (changed) {
         mkdirSync(dirname(settingsPath), { recursive: true, mode: 0o700 });
         writeFileSync(settingsPath, `${JSON.stringify(updated, null, 2)}\n`, { mode: 0o600 });
@@ -111,7 +122,15 @@ export async function setupCommand(args: string[]): Promise<Record<string, unkno
   for (const path of new Set([targets.claude.path, targets.codex.path])) {
     try {
       const settings = readClaudeSettings(path);
+      const hooks = settings.hooks && typeof settings.hooks === "object"
+        ? settings.hooks as Record<string, unknown>
+        : undefined;
+      const sessionEnd = hooks?.SessionEnd;
       const [cleaned] = computeSessionStartHookRemoval(settings, "datadog-axi");
+      if (hooks && sessionEnd !== undefined) {
+        const cleanedHooks = cleaned.hooks as Record<string, unknown> | undefined;
+        if (cleanedHooks) cleanedHooks.SessionEnd = sessionEnd;
+      }
       const [updated] = computeSessionStartHookUpdate(cleaned, {
         marker: "datadog-axi",
         command: `${quoteExecutable(process.execPath)} ${quoteExecutable(resolveCtxEntrypoint())}`,
