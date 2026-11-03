@@ -331,6 +331,9 @@ describe("CI Visibility", () => {
     const fetch = fakeFetch({
       "GET /api/v1/validate": { body: { valid: true } },
       "GET /api/v2/ci/pipelines/events": { status, body: status === 200 ? fixtures.empty : fixtures.forbidden },
+      ...(status === 403
+        ? { "GET /api/v2/ci/tests/events": { status, body: fixtures.forbidden } }
+        : {}),
     });
     const out = await run([...args], makeRuntime({ env, fetch }));
     expect(out.exitCode).toBe(0);
