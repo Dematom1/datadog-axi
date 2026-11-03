@@ -96,7 +96,7 @@ export async function setupCommand(args: string[]): Promise<Record<string, unkno
   }
   installSessionStartHooks({
     marker: "datadog-axi",
-    execPath: resolveCtxEntrypoint(),
+    execPath: `${process.execPath} ${resolveCtxEntrypoint()}`, 
     binaryNames: [],
     distEntrypoints: ["dist/bin/datadog-axi-ctx.js"],
     scope: bool(parsed, "--project") ? "project" : "user",
@@ -114,7 +114,7 @@ export async function setupCommand(args: string[]): Promise<Record<string, unkno
       const [cleaned] = computeSessionStartHookRemoval(settings, "datadog-axi");
       const [updated] = computeSessionStartHookUpdate(cleaned, {
         marker: "datadog-axi",
-        command: quoteExecutable(resolveCtxEntrypoint()),
+        command: `${quoteExecutable(process.execPath)} ${quoteExecutable(resolveCtxEntrypoint())}`,
       });
       writeFileSync(path, `${JSON.stringify(updated, null, 2)}\n`, { mode: 0o600 });
     } catch (error) {
@@ -304,7 +304,7 @@ function quoteExecutable(path: string): string {
 }
 
 function sessionEndHookCommand(): string {
-  return `${quoteExecutable(resolveCliEntrypoint())} context end`;
+  return `${quoteExecutable(process.execPath)} ${quoteExecutable(resolveCliEntrypoint())} context end`;
 }
 
 function isDatadogSessionEndCommand(command: string | undefined): boolean {
