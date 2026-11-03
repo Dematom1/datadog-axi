@@ -144,7 +144,12 @@ export const CI_HELP = renderHelp({
 function filter(query: string, window: Window) {
   return { query, from: isoUtc(window.fromMs), to: isoUtc(window.toMs) };
 }
-function complete(meta?: Meta): void {
+function complete(meta?: Meta, cursor?: string): void {
+  if (meta?.page?.after && meta.page.after === cursor) {
+    throw new AxiError("Datadog returned a CI Visibility page cursor that did not advance", "UPSTREAM_ERROR", [
+      "Narrow the window or query and retry",
+    ]);
+  }
   if (meta?.status === "timeout" || (meta?.warnings?.length ?? 0) > 0) {
     throw new AxiError(
       "Datadog returned partial CI Visibility results; totals and empty states are not reliable",
@@ -232,7 +237,7 @@ async function priorityPage(
         page: { limit: limit - events.length, ...(cursor ? { cursor } : {}) },
       },
     });
-    complete(result.data?.meta);
+    complete(result.data?.meta, cursor);
     if (!Array.isArray(result.data?.data))
       throw new AxiError("Datadog did not return CI Visibility events", "UPSTREAM_ERROR");
     redacted += result.redacted;
@@ -336,7 +341,7 @@ async function view(args: string[], rt: Runtime): Promise<Record<string, unknown
         page: { limit: 100, ...(cursor ? { cursor } : {}) },
       },
     });
-    complete(result.data?.meta);
+    complete(result.data?.meta, cursor);
     if (!Array.isArray(result.data?.data))
       throw new AxiError("Datadog did not return CI Visibility events", "UPSTREAM_ERROR");
     redacted += result.redacted;

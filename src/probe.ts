@@ -32,6 +32,11 @@ const PROBES: Probe[] = [
   },
   { domain: "metrics", operation: "metrics.search", input: () => ({ query: { q: "metrics:datadog.agent.running" } }) },
   {
+    domain: "ci",
+    operation: "ci.pipelines.list",
+    input: (now) => ({ query: { "filter[from]": isoUtc(now - 60_000), "filter[to]": isoUtc(now), "page[limit]": 1 } }),
+  },
+  {
     domain: "incidents",
     operation: "incidents.search",
     input: () => ({ query: { query: "state:active", "page[size]": 1 } }),

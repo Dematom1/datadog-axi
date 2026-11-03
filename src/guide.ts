@@ -26,7 +26,7 @@ export const DOMAIN_SCOPES: readonly DomainScopes[] = [
   { domain: "logs", scopes: ["logs_read_data", "logs_read_index_data"] },
   { domain: "metrics", scopes: ["metrics_read", "timeseries_query"] },
   { domain: "traces", scopes: ["apm_read"] },
-  { domain: "ci", scopes: ["ci_visibility_read", "test_optimization_read"] },
+  { domain: "ci", scopes: ["ci_visibility_read"] },
   { domain: "services", scopes: ["apm_service_catalog_read"] },
   { domain: "dashboards", scopes: ["dashboards_read"] },
   { domain: "incidents", scopes: ["incident_read"] },
@@ -92,6 +92,7 @@ export const READ_SCOPES: readonly string[] = DOMAIN_SCOPES.filter((d) => d.cave
 
 export function setupGuide(site: string, org = "<name>"): SetupGuide {
   const readOnly = READ_SCOPES;
+  const oauthReadOnly = [...readOnly, "test_optimization_read"];
   return {
     data: {
       site: `${site} (${regionOf(site)})`,
@@ -102,16 +103,21 @@ export function setupGuide(site: string, org = "<name>"): SetupGuide {
         pup_cli: PUP_DOCS_URL,
       },
       read_scopes: readOnly.join(" "),
+      oauth_read_scopes: oauthReadOnly.join(" "),
       scopes: DOMAIN_SCOPES.map(({ domain, scopes, caveat }) => ({
         domain,
         scopes: scopes.join(" "),
-        note: caveat ?? "read-only",
+        note:
+          caveat ??
+          (domain === "ci"
+            ? "read-only: ci_visibility_read alone covers pipelines and tests for API keys/PATs; tests-only alternative: test_optimization_read; OAuth tests require test_optimization_read"
+            : "read-only"),
       })),
     },
     steps: [
       "Route A (recommended) - Pup, Datadog's CLI: one browser login and no long-lived key",
       "A1. Install Pup: brew tap datadog-labs/pack && brew install datadog-labs/pack/pup (or npm install -g @datadog/pup)",
-      `A2. Log in once in the browser with only read_scopes: ${pupLoginCommand(site, readOnly)}`,
+      `A2. Log in once in the browser with only oauth_read_scopes: ${pupLoginCommand(site, oauthReadOnly)}`,
       `A3. Nothing to copy: with no other credential set, datadog-axi runs \`pup auth token\` itself and keeps the token in memory only${
         site === DEFAULT_SITE ? "" : `. Export DD_SITE=${site} so pup and datadog-axi pick this login`
       }; for a named pup session (pup auth login --org <name>), export DD_ORG=<name>`,
