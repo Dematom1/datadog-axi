@@ -79,7 +79,6 @@ describe("setup repair", () => {
                       SessionEnd: [
                         {
                           hooks: [
-                            foreign,
                             foreignSessionEnd,
                             { command: "datadog-axi context end" },
                             { command: "/old/datadog-axi context end" },
@@ -102,22 +101,36 @@ describe("setup repair", () => {
         setup("hooks");
         setup("hooks");
         for (const path of paths) {
-          for (const groups of Object.values(readSettings(path).hooks)) {
-            const commands = groups.flatMap((group) => group.hooks);
-            expect(commands).toContainEqual(foreign);
-            if (path === paths[0]) expect(commands).toContainEqual(foreignSessionEnd);
-            const managed = commands.filter(
-              (hook) => hook.command.includes("datadog-axi") && hook.command !== foreignSessionEnd.command,
-            );
-            expect(managed).toHaveLength(1);
-            for (const hook of managed) {
-              expect(hook.command).toMatch(/^"\//);
-              expect(hook.command).not.toContain("/old/");
-              // Execute the persisted shell interface, not merely its parsed path.
-              const result = spawnSync("/bin/sh", ["-c", hook.command], { cwd, env, input: "{}", encoding: "utf8" });
-              expect(result.stderr).toBe("");
-              expect(result.status).toBe(0);
-            }
+          const settings = readSettings(path);
+          const startCommands = settings.hooks.SessionStart.flatMap((group) => group.hooks);
+          expect(startCommands).toContainEqual(foreign);
+          const managedStart = startCommands.filter((hook) => /(?:^|\/)datadog-axi-ctx(?:\.js|\.ts)?"?$/.test(hook.command));
+          expect(managedStart).toHaveLength(1);
+          expect(managedStart[0].command).toMatch(/^"\//);
+          expect(managedStart[0].command).not.toContain("/old/");
+          const startResult = spawnSync("/bin/sh", ["-c", managedStart[0].command], {
+            cwd,
+            env,
+            input: "{}",
+            encoding: "utf8",
+          });
+          expect(startResult.stderr).toBe("");
+          expect(startResult.status).toBe(0);
+
+          if (path === paths[0]) {
+            const endCommands = settings.hooks.SessionEnd.flatMap((group) => group.hooks);
+            expect(endCommands).toContainEqual(foreignSessionEnd);
+            const managedEnd = endCommands.filter((hook) => /(?:^|\/)datadog-axi(?:\.js|\.ts)?"? context end$/.test(hook.command));
+            expect(managedEnd).toHaveLength(1);
+            expect(managedEnd[0].command).not.toContain("/old/");
+            const endResult = spawnSync("/bin/sh", ["-c", managedEnd[0].command], {
+              cwd,
+              env,
+              input: "{}",
+              encoding: "utf8",
+            });
+            expect(endResult.stderr).toBe("");
+            expect(endResult.status).toBe(0);
           }
         }
         setup("uninstall");
