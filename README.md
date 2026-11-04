@@ -2,6 +2,7 @@
 
 <p align="center">
   <a href="https://www.npmjs.com/package/datadog-axi"><img alt="npm" src="https://img.shields.io/npm/v/datadog-axi?style=flat-square" /></a>
+  <a href="https://www.npmjs.com/package/datadog-axi"><img alt="npm downloads" src="https://img.shields.io/npm/dw/datadog-axi?style=flat-square" /></a>
   <a href="https://github.com/Dematom1/datadog-axi/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/Dematom1/datadog-axi/ci.yml?style=flat-square&label=ci" /></a>
   <a href="https://github.com/Dematom1/datadog-axi/actions/workflows/release-please.yml"><img alt="Release" src="https://img.shields.io/github/actions/workflow/status/Dematom1/datadog-axi/release-please.yml?style=flat-square&label=release" /></a>
   <a href="https://img.shields.io/badge/platform-Linux%20%7C%20macOS-blue?style=flat-square"><img alt="Platform" src="https://img.shields.io/badge/platform-Linux%20%7C%20macOS-blue?style=flat-square" /></a>
