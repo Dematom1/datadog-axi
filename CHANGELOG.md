@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.12](https://github.com/Dematom1/datadog-axi/compare/datadog-axi-v0.1.11...datadog-axi-v0.1.12) (2026-11-04)
+
+
+### Features
+
+* **ci:** add CI Visibility commands ([#45](https://github.com/Dematom1/datadog-axi/issues/45)) ([b8cacc3](https://github.com/Dematom1/datadog-axi/commit/b8cacc36950f2c7204388ef9aac1a8b1db8adca5))
+
+
+### Bug Fixes
+
+* **setup:** remove SessionStart hooks during uninstall ([#43](https://github.com/Dematom1/datadog-axi/issues/43)) ([150d456](https://github.com/Dematom1/datadog-axi/commit/150d456ae462477d4a9519b3d12f14c021660712))
+* **setup:** repair and clean up managed hooks ([#46](https://github.com/Dematom1/datadog-axi/issues/46)) ([c344433](https://github.com/Dematom1/datadog-axi/commit/c3444330f816be001cc201c548ec8de6f7dcfcc6))
+
 ## [0.1.11](https://github.com/Dematom1/datadog-axi/compare/datadog-axi-v0.1.10...datadog-axi-v0.1.11) (2026-11-02)
 
 
