@@ -79,20 +79,24 @@ export async function probeDomains(seam: Seam, nowMs: number): Promise<ProbeResu
   );
   const ci = results.filter((result) => result.domain === "ci");
   if (ci.length) {
-    results.splice(results.findIndex((result) => result.domain === "ci"), ci.length, {
-      domain: "ci",
-      readable: ci.some((result) => result.readable === "yes")
-        ? "yes"
-        : ci.every((result) => result.readable === "no")
-          ? "no"
-          : "error",
-      detail: ci.some((result) => result.readable === "yes")
-        ? "ok"
-        : ci.every((result) => result.readable === "no")
-          ? "FORBIDDEN"
-          : ci.find((result) => result.readable === "error")?.detail ?? "FORBIDDEN",
-      rateLimit: ci.find((result) => result.readable === "yes")?.rateLimit,
-    });
+    results.splice(
+      results.findIndex((result) => result.domain === "ci"),
+      ci.length,
+      {
+        domain: "ci",
+        readable: ci.some((result) => result.readable === "yes")
+          ? "yes"
+          : ci.every((result) => result.readable === "no")
+            ? "no"
+            : "error",
+        detail: ci.some((result) => result.readable === "yes")
+          ? "ok"
+          : ci.every((result) => result.readable === "no")
+            ? "FORBIDDEN"
+            : (ci.find((result) => result.readable === "error")?.detail ?? "FORBIDDEN"),
+        rateLimit: ci.find((result) => result.readable === "yes")?.rateLimit,
+      },
+    );
   }
   results.push({ domain: "traces", readable: "not probed", detail: "span search allows 300 requests/hour" });
   return results;
