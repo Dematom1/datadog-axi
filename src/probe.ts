@@ -32,6 +32,16 @@ const PROBES: Probe[] = [
   },
   { domain: "metrics", operation: "metrics.search", input: () => ({ query: { q: "metrics:datadog.agent.running" } }) },
   {
+    domain: "ci",
+    operation: "ci.pipelines.list",
+    input: (now) => ({ query: { "filter[from]": isoUtc(now - 60_000), "filter[to]": isoUtc(now), "page[limit]": 1 } }),
+  },
+  {
+    domain: "ci",
+    operation: "ci.tests.list",
+    input: (now) => ({ query: { "filter[from]": isoUtc(now - 60_000), "filter[to]": isoUtc(now), "page[limit]": 1 } }),
+  },
+  {
     domain: "incidents",
     operation: "incidents.search",
     input: () => ({ query: { query: "state:active", "page[size]": 1 } }),
@@ -67,6 +77,27 @@ export async function probeDomains(seam: Seam, nowMs: number): Promise<ProbeResu
       }
     }),
   );
+  const ci = results.filter((result) => result.domain === "ci");
+  if (ci.length) {
+    results.splice(
+      results.findIndex((result) => result.domain === "ci"),
+      ci.length,
+      {
+        domain: "ci",
+        readable: ci.some((result) => result.readable === "yes")
+          ? "yes"
+          : ci.every((result) => result.readable === "no")
+            ? "no"
+            : "error",
+        detail: ci.some((result) => result.readable === "yes")
+          ? "ok"
+          : ci.every((result) => result.readable === "no")
+            ? "FORBIDDEN"
+            : (ci.find((result) => result.readable === "error")?.detail ?? "FORBIDDEN"),
+        rateLimit: ci.find((result) => result.readable === "yes")?.rateLimit,
+      },
+    );
+  }
   results.push({ domain: "traces", readable: "not probed", detail: "span search allows 300 requests/hour" });
   return results;
 }

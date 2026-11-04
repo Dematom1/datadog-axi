@@ -36,6 +36,12 @@ beforeAll(async () => {
     req.on("end", () => {
       if (url.pathname === "/api/v1/monitor/search") return send(200, fixture("monitor-search.json"));
       if (url.pathname === "/api/v2/incidents/search") return send(200, fixture("incidents-search.json"));
+      if (/^\/api\/v2\/ci\/(pipelines|tests)\/events\/search$/.test(url.pathname)) {
+        return send(200, fixture<Record<string, unknown>>("ci-visibility.json").empty);
+      }
+      if (/^\/api\/v2\/ci\/(pipelines|tests)\/analytics\/aggregate$/.test(url.pathname)) {
+        return send(200, fixture<Record<string, unknown>>("ci-visibility.json").zero);
+      }
       if (url.pathname === "/api/v1/monitor/999") return send(404, { errors: ["Monitor not found"] });
       return send(404, { errors: ["no fake route"] });
     });
@@ -115,6 +121,20 @@ describe("compiled binary", () => {
     const mine = requests.slice(before);
     expect(mine.length).toBe(3);
     expect(mine.every((r) => r.headers["dd-api-key"] === CREDS.DD_API_KEY)).toBe(true);
+  });
+
+  it("renders a definitive CI empty-org state from the source build using documented fixtures", async () => {
+    for (const kind of ["pipelines", "tests"]) {
+      const { stdout, stderr, code } = await runBin(
+        BIN,
+        ["ci", kind, "--from", "24h"],
+        cleanEnv({ ...CREDS, DATADOG_AXI_API_URL: baseUrl }),
+      );
+      expect(code).toBe(0);
+      expect(stderr).toBe("");
+      expect(stdout).toContain("No CI Visibility data for this org in the time window");
+      expect(stdout).toContain("total: 0");
+    }
   });
 
   it("exits 1 with a structured error on stdout for API errors", async () => {

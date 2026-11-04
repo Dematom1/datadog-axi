@@ -63,6 +63,19 @@ export const READ_OPERATIONS: Operation[] = [
   r("monitors.get", "GET", "/api/v1/monitor/{monitor_id}", "monitors"),
   r("monitors.groups_search", "GET", "/api/v1/monitor/groups/search", "monitors"),
 
+  r("ci.pipelines.list", "GET", "/api/v2/ci/pipelines/events", "ci"),
+  r("ci.pipelines.search", "POST", "/api/v2/ci/pipelines/events/search", "ci", {
+    bodyType: "ci_app_pipeline_events_request",
+  }),
+  r("ci.pipelines.aggregate", "POST", "/api/v2/ci/pipelines/analytics/aggregate", "ci", {
+    bodyType: "ci_app_pipelines_aggregate_request",
+  }),
+  r("ci.tests.list", "GET", "/api/v2/ci/tests/events", "ci"),
+  r("ci.tests.search", "POST", "/api/v2/ci/tests/events/search", "ci", { bodyType: "ci_app_test_events_request" }),
+  r("ci.tests.aggregate", "POST", "/api/v2/ci/tests/analytics/aggregate", "ci", {
+    bodyType: "ci_app_tests_aggregate_request",
+  }),
+
   r("logs.search", "POST", "/api/v2/logs/events/search", "logs", { bodyType: "logs_search_request" }),
   r("logs.list", "GET", "/api/v2/logs/events", "logs"),
   r("logs.aggregate", "POST", "/api/v2/logs/analytics/aggregate", "logs", {

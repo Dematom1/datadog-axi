@@ -14,6 +14,7 @@ import {
 } from "./update-manager.js";
 import { API_HELP, apiCommand } from "./commands/api.js";
 import { AUTH_HELP, authCommand } from "./commands/auth.js";
+import { CI_HELP, ciCommand } from "./commands/ci.js";
 import { CTX_HELP, ctxCommand } from "./commands/ctx.js";
 import { DASHBOARDS_HELP, dashboardsCommand } from "./commands/dashboards.js";
 import { DOCTOR_HELP, doctorCommand } from "./commands/doctor.js";
@@ -42,9 +43,9 @@ export const DESCRIPTION =
   "Read-first Datadog for agents: monitors, logs, metrics, traces, incidents and more as compact TOON, straight from the Datadog API";
 
 export const TOP_HELP = `usage: datadog-axi <command> [args] [flags]
-commands[19]:
-  (none)=home, monitors, logs, metrics, traces, services, dashboards, incidents, events, hosts, slos, downtimes, synthetics, notebooks, api, auth, doctor, ctx, setup
-summary[19]:
+commands[20]:
+  (none)=home, monitors, logs, metrics, traces, services, dashboards, incidents, events, hosts, slos, downtimes, synthetics, notebooks, ci, api, auth, doctor, ctx, setup
+summary[20]:
   (none): Live home view - org, site, monitor counts, alerting monitors, open incidents
   monitors: Search monitors (problems first, status counts) and view one
   logs: Search log events, count them by facet, view one event
@@ -59,6 +60,7 @@ summary[19]:
   downtimes: List downtimes that silence monitors
   synthetics: List synthetic tests; view one; latest results
   notebooks: List notebooks; read one cell by cell
+  ci: Recent pipeline runs, failing/flaky tests with failure counts, event detail
   api: Call an allowlisted read-only API endpoint directly
   auth: Credential setup guide (pup login or keys); store, check, list and remove credentials (OS keychain per org)
   doctor: Keys, site reachability, readable domains, rate limits, write capability
@@ -84,6 +86,7 @@ examples[4]:
 `;
 
 export const COMMAND_HELP: Record<string, string> = {
+  ci: CI_HELP,
   monitors: MONITORS_HELP,
   logs: LOGS_HELP,
   metrics: METRICS_HELP,
@@ -108,6 +111,7 @@ type Handler = (args: string[], rt: Runtime) => Promise<Record<string, unknown> 
 
 const HANDLERS: Record<string, Handler> = {
   home: (args, rt) => homeCommand(rt, args),
+  ci: ciCommand,
   monitors: monitorsCommand,
   logs: logsCommand,
   metrics: metricsCommand,
