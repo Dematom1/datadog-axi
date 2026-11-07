@@ -129,12 +129,13 @@ export function runPup(
       if (error) reject(error);
       else resolve(stdout);
     };
-    const onSignal = (signal: "SIGINT" | "SIGTERM", code: number) => {
+    const onSignal = (code: number) => {
       kill();
+      finish(new PupFailure("pup interrupted", "failed"));
       queueMicrotask(() => process.exit(code));
     };
-    const onSigint = () => onSignal("SIGINT", 130);
-    const onSigterm = () => onSignal("SIGTERM", 143);
+    const onSigint = () => onSignal(130);
+    const onSigterm = () => onSignal(143);
     const timer = setTimeout(() => {
       timedOut = true;
       kill();
