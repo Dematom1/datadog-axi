@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { StringDecoder } from "node:string_decoder";
 import { accessSync, constants, statSync } from "node:fs";
 import { delimiter, join } from "node:path";
 import { AxiError } from "axi-sdk-js";
@@ -100,6 +101,8 @@ export function runPup(
     let stdout = "";
     let stderr = "";
     let outputBytes = 0;
+    const stdoutDecoder = new StringDecoder("utf8");
+    const stderrDecoder = new StringDecoder("utf8");
     let settled = false;
     let timedOut = false;
 
@@ -144,24 +147,23 @@ export function runPup(
     process.once("SIGINT", onSigint);
     process.once("SIGTERM", onSigterm);
 
-    child.stdout?.on("data", (chunk: Buffer) => {
+    const collect = (decoder: StringDecoder, append: (text: string) => void) => (chunk: Buffer) => {
       outputBytes += chunk.length;
       if (outputBytes > 1024 * 1024) {
         kill();
         finish(new PupFailure("pup output exceeded 1 MiB", "failed"));
       } else {
-        stdout += chunk.toString();
+        append(decoder.write(chunk));
       }
-    });
-    child.stderr?.on("data", (chunk: Buffer) => {
-      outputBytes += chunk.length;
-      if (outputBytes > 1024 * 1024) {
-        kill();
-        finish(new PupFailure("pup output exceeded 1 MiB", "failed"));
-      } else {
-        stderr += chunk.toString();
-      }
-    });
+    };
+    child.stdout?.on(
+      "data",
+      collect(stdoutDecoder, (text) => (stdout += text)),
+    );
+    child.stderr?.on(
+      "data",
+      collect(stderrDecoder, (text) => (stderr += text)),
+    );
     child.once("error", (error) => {
       const code = (error as NodeJS.ErrnoException).code;
       finish(
@@ -172,7 +174,11 @@ export function runPup(
     });
     child.once("close", (code) => {
       if (timedOut || settled) return;
-      if (code === 0) finish();
+      stdout += stdoutDecoder.end();
+      stderr += stderrDecoder.end();
+      if (Buffer.byteLength(stdout) + Buffer.byteLength(stderr) > 1024 * 1024) {
+        finish(new PupFailure("pup output exceeded 1 MiB", "failed"));
+      } else if (code === 0) finish();
       else finish(new PupFailure(firstLine(stderr) || firstLine(stdout) || "pup exited with an error", "failed"));
     });
   });
