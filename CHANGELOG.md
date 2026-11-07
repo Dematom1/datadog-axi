@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.13](https://github.com/Dematom1/datadog-axi/compare/datadog-axi-v0.1.12...datadog-axi-v0.1.13) (2026-11-07)
+
+
+### Bug Fixes
+
+* terminate pup process groups on deadline ([#48](https://github.com/Dematom1/datadog-axi/issues/48)) ([4d92ab2](https://github.com/Dematom1/datadog-axi/commit/4d92ab289673847fea0e4ade4666e7659adb05c7))
+
 ## [0.1.12](https://github.com/Dematom1/datadog-axi/compare/datadog-axi-v0.1.11...datadog-axi-v0.1.12) (2026-11-04)
 
 
