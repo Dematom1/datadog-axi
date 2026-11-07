@@ -53,7 +53,9 @@ describe("runPup deadline", () => {
     const pidFile = join(dir, "pid");
     vi.stubGlobal("process", Object.create(process, { platform: { value: "win32" } }));
     try {
-      await expect(runPup(process.execPath, [bin, pidFile], process.env, 100)).rejects.toMatchObject({ kind: "timeout" });
+      await expect(runPup(process.execPath, [bin, pidFile], process.env, 100)).rejects.toMatchObject({
+        kind: "timeout",
+      });
     } finally {
       vi.unstubAllGlobals();
     }
@@ -62,7 +64,10 @@ describe("runPup deadline", () => {
     expect(() => process.kill(pid, 0)).toThrow();
   });
 
-  it.each([["SIGINT", 130], ["SIGTERM", 143]] as const)("cleans up the child group on %s", async (signal, code) => {
+  it.each([
+    ["SIGINT", 130],
+    ["SIGTERM", 143],
+  ] as const)("cleans up the child group on %s", async (signal, code) => {
     const { dir, bin } = await stub(`
       import { spawn } from "node:child_process";
       import { writeFileSync } from "node:fs";
@@ -76,6 +81,7 @@ describe("runPup deadline", () => {
     const exit = vi.spyOn(process, "exit").mockImplementation((() => undefined) as never);
     try {
       const running = runPup(process.execPath, [bin, marker], process.env, 3000);
+      const interrupted = expect(running).rejects.toMatchObject({ kind: "failed" });
       for (let i = 0; i < 100; i++) {
         try {
           await readFile(marker + ".ready", "utf8");
@@ -87,7 +93,7 @@ describe("runPup deadline", () => {
       process.emit(signal);
       await new Promise((resolve) => setImmediate(resolve));
       expect(exit).toHaveBeenCalledWith(code);
-      await expect(running).rejects.toMatchObject({ kind: "failed" });
+      await interrupted;
       await new Promise((resolve) => setTimeout(resolve, 600));
       await expect(readFile(marker, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
     } finally {
