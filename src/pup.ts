@@ -1,4 +1,5 @@
-import { execFile } from "node:child_process";
+import { spawn } from "node:child_process";
+import { StringDecoder } from "node:string_decoder";
 import { accessSync, constants, statSync } from "node:fs";
 import { delimiter, join } from "node:path";
 import { AxiError } from "axi-sdk-js";
@@ -80,29 +81,108 @@ function isExecutable(path: string): boolean {
 
 export const processPupRunner: PupRunner = {
   run(bin, args, env) {
-    return new Promise((resolve, reject) => {
-      execFile(
-        bin,
-        args,
-        { env, timeout: PUP_TIMEOUT_MS, maxBuffer: 1024 * 1024, windowsHide: true },
-        (error, stdout, stderr) => {
-          if (!error) {
-            resolve(stdout);
-            return;
-          }
-          const err = error as NodeJS.ErrnoException & { killed?: boolean };
-          if (err.code === "ENOENT" || err.code === "EACCES") {
-            reject(new PupFailure(`could not run ${bin}`, "missing"));
-          } else if (err.killed) {
-            reject(new PupFailure(`pup did not answer within ${PUP_TIMEOUT_MS / 1000}s`, "timeout"));
-          } else {
-            reject(new PupFailure(firstLine(stderr) || firstLine(stdout) || `pup exited with an error`, "failed"));
-          }
-        },
-      );
-    });
+    return runPup(bin, args, env);
   },
 };
+
+export function runPup(
+  bin: string,
+  args: string[],
+  env: NodeJS.ProcessEnv,
+  timeoutMs = PUP_TIMEOUT_MS,
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(bin, args, {
+      env,
+      stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true,
+      detached: process.platform !== "win32",
+    });
+    let stdout = "";
+    let stderr = "";
+    let outputBytes = 0;
+    const stdoutDecoder = new StringDecoder("utf8");
+    const stderrDecoder = new StringDecoder("utf8");
+    let settled = false;
+    let timedOut = false;
+
+    const kill = () => {
+      if (process.platform !== "win32" && child.pid !== undefined) {
+        try {
+          process.kill(-child.pid, "SIGKILL");
+        } catch {
+          child.kill("SIGKILL");
+        }
+      } else {
+        child.kill("SIGKILL");
+      }
+      child.stdout?.destroy();
+      child.stderr?.destroy();
+      child.unref();
+    };
+    const cleanup = () => {
+      clearTimeout(timer);
+      process.removeListener("SIGINT", onSigint);
+      process.removeListener("SIGTERM", onSigterm);
+    };
+    const finish = (error?: PupFailure) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      if (error) reject(error);
+      else resolve(stdout);
+    };
+    const onSignal = (code: number) => {
+      kill();
+      finish(new PupFailure("pup interrupted", "failed"));
+      queueMicrotask(() => process.exit(code));
+    };
+    const onSigint = () => onSignal(130);
+    const onSigterm = () => onSignal(143);
+    const timer = setTimeout(() => {
+      timedOut = true;
+      kill();
+      finish(new PupFailure(`pup did not answer within ${timeoutMs / 1000}s`, "timeout"));
+    }, timeoutMs);
+    process.once("SIGINT", onSigint);
+    process.once("SIGTERM", onSigterm);
+
+    const collect = (decoder: StringDecoder, append: (text: string) => void) => (chunk: Buffer) => {
+      outputBytes += chunk.length;
+      if (outputBytes > 1024 * 1024) {
+        kill();
+        finish(new PupFailure("pup output exceeded 1 MiB", "failed"));
+      } else {
+        append(decoder.write(chunk));
+      }
+    };
+    child.stdout?.on(
+      "data",
+      collect(stdoutDecoder, (text) => (stdout += text)),
+    );
+    child.stderr?.on(
+      "data",
+      collect(stderrDecoder, (text) => (stderr += text)),
+    );
+    child.once("error", (error) => {
+      const code = (error as NodeJS.ErrnoException).code;
+      finish(
+        code === "ENOENT" || code === "EACCES"
+          ? new PupFailure(`could not run ${bin}`, "missing")
+          : new PupFailure(error.message, "failed"),
+      );
+    });
+    child.once("close", (code) => {
+      if (timedOut || settled) return;
+      stdout += stdoutDecoder.end();
+      stderr += stderrDecoder.end();
+      if (Buffer.byteLength(stdout) + Buffer.byteLength(stderr) > 1024 * 1024) {
+        finish(new PupFailure("pup output exceeded 1 MiB", "failed"));
+      } else if (code === 0) finish();
+      else finish(new PupFailure(firstLine(stderr) || firstLine(stdout) || "pup exited with an error", "failed"));
+    });
+  });
+}
 
 function firstLine(text: string): string {
   return (
