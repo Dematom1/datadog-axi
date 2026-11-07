@@ -44,28 +44,55 @@ describe("runPup deadline", () => {
     expect(Date.now() - started).toBeLessThan(1000);
   });
 
-  it("uses direct-child killing on Windows", async () => {
-    const { bin } = await stub('setInterval(() => {}, 1000);');
-    const kill = vi.spyOn(process, "kill");
+  it("kills the direct child on Windows", async () => {
+    const { dir, bin } = await stub(`
+      import { writeFileSync } from "node:fs";
+      writeFileSync(process.argv[2], String(process.pid));
+      setInterval(() => {}, 1000);
+    `);
+    const pidFile = join(dir, "pid");
     vi.stubGlobal("process", Object.create(process, { platform: { value: "win32" } }));
     try {
-      await expect(runPup(process.execPath, [bin], process.env, 100)).rejects.toMatchObject({ kind: "timeout" });
-      expect(kill).not.toHaveBeenCalled();
+      await expect(runPup(process.execPath, [bin, pidFile], process.env, 100)).rejects.toMatchObject({ kind: "timeout" });
     } finally {
       vi.unstubAllGlobals();
-      kill.mockRestore();
     }
+    const pid = Number(await readFile(pidFile, "utf8"));
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(() => process.kill(pid, 0)).toThrow();
   });
 
-  it.each([["SIGINT", 130], ["SIGTERM", 143]] as const)("cleans up on %s", async (signal, code) => {
-    const { bin } = await stub('setInterval(() => {}, 1000);');
+  it.each([["SIGINT", 130], ["SIGTERM", 143]] as const)("cleans up the child group on %s", async (signal, code) => {
+    const { dir, bin } = await stub(`
+      import { spawn } from "node:child_process";
+      import { writeFileSync } from "node:fs";
+      const marker = process.argv[2];
+      const grandchild = spawn(process.execPath, ["-e", "setTimeout(() => require('fs').writeFileSync(process.argv[1], 'grandchild'), 500)", marker], { stdio: "ignore" });
+      writeFileSync(marker + ".ready", String(grandchild.pid));
+      setTimeout(() => writeFileSync(marker, "child"), 500);
+      setInterval(() => {}, 1000);
+    `);
+    const marker = join(dir, "signal-side-effect");
     const exit = vi.spyOn(process, "exit").mockImplementation((() => undefined) as never);
-    const running = runPup(process.execPath, [bin], process.env, 3000);
-    process.emit(signal);
-    await new Promise((resolve) => setImmediate(resolve));
-    expect(exit).toHaveBeenCalledWith(code);
-    await expect(running).rejects.toMatchObject({ kind: "failed" });
-    exit.mockRestore();
+    try {
+      const running = runPup(process.execPath, [bin, marker], process.env, 3000);
+      for (let i = 0; i < 100; i++) {
+        try {
+          await readFile(marker + ".ready", "utf8");
+          break;
+        } catch {
+          await new Promise((resolve) => setTimeout(resolve, 10));
+        }
+      }
+      process.emit(signal);
+      await new Promise((resolve) => setImmediate(resolve));
+      expect(exit).toHaveBeenCalledWith(code);
+      await expect(running).rejects.toMatchObject({ kind: "failed" });
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      await expect(readFile(marker, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    } finally {
+      exit.mockRestore();
+    }
   });
 
   it("removes signal listeners after normal completion", async () => {
