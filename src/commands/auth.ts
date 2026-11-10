@@ -251,7 +251,7 @@ async function logout(args: string[], rt: Runtime): Promise<Record<string, unkno
   }
   const config = loadConfig(rt.configPath);
   const known = findOrg(config, orgName) !== undefined;
-  let deleted = false;
+  let deleted: boolean;
   try {
     deleted = await rt.keychain.delete(orgName);
   } catch (error) {
