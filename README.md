@@ -48,9 +48,9 @@ Install the agent skill (Claude Code, Codex, Cursor, OpenCode and other skills-c
 npx skills add Dematom1/datadog-axi --skill datadog-axi -g
 ```
 
-Zero setup, any agent: tell your agent "Execute `npx -y datadog-axi` to see what is alerting, failing or slow in Datadog", or add that line to `AGENTS.md` or `CLAUDE.md`.
+Zero setup, any agent: tell your agent "Execute `npx -y datadog-axi` to see what is alerting in Datadog and read its logs, metrics, traces and CI runs", or add that line to `AGENTS.md` or `CLAUDE.md`.
 
-Then give it credentials (see [Credentials](#credentials); pup is the easiest route).
+Then give it credentials (see [Credentials](#credentials); pup is the easiest route). Without a global install, run the `datadog-axi` commands shown there as `npx -y datadog-axi`, for example `npx -y datadog-axi auth guide --site datadoghq.eu`.
 
 ### Optional: global install and session hook
 
