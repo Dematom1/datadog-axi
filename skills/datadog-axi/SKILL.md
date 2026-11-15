@@ -1,6 +1,6 @@
 ---
 name: datadog-axi
-description: "Read Datadog through the datadog-axi CLI - monitors, logs, metrics, APM traces, incidents, CI pipeline runs and failing/flaky tests, dashboards, events, hosts, SLOs, downtimes, synthetics, notebooks and allowlisted read-only API calls. Use whenever a task needs Datadog data: checking what is alerting, searching or counting logs, querying a metric, finding slow or failing traces, reviewing incidents, or reading a dashboard's queries."
+description: "Answer what is alerting, failing or slow in Datadog without leaving the agent: read-only monitors, logs, metrics, APM traces, incidents, CI pipeline runs and failing/flaky tests, dashboards, events, hosts, SLOs, downtimes, synthetics and notebooks, in compact output; never writes. Use whenever a task needs Datadog data: checking what is alerting, searching or counting logs, querying a metric, finding slow or failing traces, reviewing incidents, or reading a dashboard's queries."
 user-invocable: false
 ---
 
