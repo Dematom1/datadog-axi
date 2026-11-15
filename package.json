@@ -19,7 +19,14 @@
     "cli",
     "agent",
     "axi",
-    "toon"
+    "toon",
+    "monitoring",
+    "apm",
+    "logs",
+    "claude-code",
+    "codex",
+    "skills",
+    "agent-skills"
   ],
   "bin": {
     "datadog-axi": "./dist/bin/datadog-axi.js",

@@ -42,12 +42,22 @@ v1 is read-only. It sends no writes, and write-like requests are refused with a 
 
 ## Install and quick start
 
+Install the agent skill (Claude Code, Codex, Cursor, OpenCode and other skills-compatible agents):
+
+```sh
+npx skills add Dematom1/datadog-axi --skill datadog-axi -g
+```
+
+Zero setup, any agent: tell your agent "Execute `npx -y datadog-axi` to see what is alerting in Datadog and read its logs, metrics, traces and CI runs", or add that line to `AGENTS.md` or `CLAUDE.md`.
+
+Then give it credentials (see [Credentials](#credentials); pup is the easiest route). Without a global install, run the `datadog-axi` commands shown there as `npx -y datadog-axi`, for example `npx -y datadog-axi auth guide --site datadoghq.eu`.
+
+### Optional: global install and session hook
+
 Requires Node.js 20.19+ or 22.12+.
 
 ```sh
 npm install -g datadog-axi
-# Or run without installing:
-npx -y datadog-axi
 # Install the agent session hook:
 datadog-axi setup hooks
 ```
@@ -196,8 +206,20 @@ Errors are printed on stdout as `error`, `code` and `help`. Exit code 0 means su
 
 There are two ways to give an agent datadog-axi context, and you only need one.
 
-1. **Session hook (recommended).** `datadog-axi setup hooks` installs SessionStart hooks for Claude Code, Codex and OpenCode, plus a Claude Code SessionEnd hook, at user scope or with `--project` for this repository. SessionStart runs `datadog-axi-ctx`, which prints the org, site, credential source and write status from local config only. SessionEnd records per-directory datadog-axi command names, counts and most-used site in `~/.config/datadog-axi/sessions.json`; it does not record arguments, flags or values. `ctx` includes that directory's last session summary when available. `datadog-axi setup status` reports hook state; `datadog-axi setup uninstall` removes this tool's SessionStart hooks and the Claude Code SessionEnd hook. Re-running `setup hooks` repairs moved paths.
-2. **Skill.** Install the generated skill ([`skills/datadog-axi/SKILL.md`](skills/datadog-axi/SKILL.md)) with `npx skills add Dematom1/datadog-axi --skill datadog-axi`. It loads on demand and runs commands through `npx -y datadog-axi`.
+1. **Skill.** Install the generated skill ([`skills/datadog-axi/SKILL.md`](skills/datadog-axi/SKILL.md)) as described in [Install and quick start](#install-and-quick-start). It loads on demand and runs commands through `npx -y datadog-axi`.
+2. **Optional: session hook.** `datadog-axi setup hooks` installs SessionStart hooks for Claude Code, Codex and OpenCode, plus a Claude Code SessionEnd hook, at user scope or with `--project` for this repository. SessionStart runs `datadog-axi-ctx`, which prints the org, site, credential source and write status from local config only. SessionEnd records per-directory datadog-axi command names, counts and most-used site in `~/.config/datadog-axi/sessions.json`; it does not record arguments, flags or values. `ctx` includes that directory's last session summary when available. `datadog-axi setup status` reports hook state; `datadog-axi setup uninstall` removes this tool's SessionStart hooks and the Claude Code SessionEnd hook. Re-running `setup hooks` repairs moved paths.
+
+## Dematom1 platform AXIs
+
+datadog-axi is part of a suite of read-first AXI CLIs for platform work. Each installs as a skill in one line:
+
+| Tool                                                                 | Covers                                             | Skill install                                                              |
+| -------------------------------------------------------------------- | -------------------------------------------------- | -------------------------------------------------------------------------- |
+| [terraform-axi](https://github.com/Dematom1/terraform-axi)           | Terraform / OpenTofu plan, drift and state         | `npx skills add Dematom1/terraform-axi --skill terraform-axi -g`           |
+| [k8s-axi](https://github.com/Dematom1/k8s-axi)                       | Kubernetes workloads, events and logs              | `npx skills add Dematom1/k8s-axi --skill k8s-axi -g`                       |
+| [argocd-axi](https://github.com/Dematom1/argocd-axi)                 | Argo CD applications and sync status               | `npx skills add Dematom1/argocd-axi --skill argocd-axi -g`                 |
+| [argo-workflows-axi](https://github.com/Dematom1/argo-workflows-axi) | Argo Workflows runs and logs                       | `npx skills add Dematom1/argo-workflows-axi --skill argo-workflows-axi -g` |
+| [datadog-axi](https://github.com/Dematom1/datadog-axi) (optional)    | Datadog monitors, logs, metrics, traces, incidents | `npx skills add Dematom1/datadog-axi --skill datadog-axi -g`               |
 
 ## Configuration
 
