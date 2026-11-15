@@ -206,7 +206,7 @@ Errors are printed on stdout as `error`, `code` and `help`. Exit code 0 means su
 
 There are two ways to give an agent datadog-axi context, and you only need one.
 
-1. **Skill.** Install the generated skill ([`skills/datadog-axi/SKILL.md`](skills/datadog-axi/SKILL.md)) with `npx skills add Dematom1/datadog-axi --skill datadog-axi -g`. It loads on demand and runs commands through `npx -y datadog-axi`.
+1. **Skill.** Install the generated skill ([`skills/datadog-axi/SKILL.md`](skills/datadog-axi/SKILL.md)) as described in [Install and quick start](#install-and-quick-start). It loads on demand and runs commands through `npx -y datadog-axi`.
 2. **Optional: session hook.** `datadog-axi setup hooks` installs SessionStart hooks for Claude Code, Codex and OpenCode, plus a Claude Code SessionEnd hook, at user scope or with `--project` for this repository. SessionStart runs `datadog-axi-ctx`, which prints the org, site, credential source and write status from local config only. SessionEnd records per-directory datadog-axi command names, counts and most-used site in `~/.config/datadog-axi/sessions.json`; it does not record arguments, flags or values. `ctx` includes that directory's last session summary when available. `datadog-axi setup status` reports hook state; `datadog-axi setup uninstall` removes this tool's SessionStart hooks and the Claude Code SessionEnd hook. Re-running `setup hooks` repairs moved paths.
 
 ## Dematom1 platform AXIs
