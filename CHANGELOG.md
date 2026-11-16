@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.14](https://github.com/Dematom1/datadog-axi/compare/datadog-axi-v0.1.13...datadog-axi-v0.1.14) (2026-11-15)
+
+
+### Features
+
+* **datadog-axi:** make skill-first setup the quick start ([#51](https://github.com/Dematom1/datadog-axi/issues/51)) ([6c570cd](https://github.com/Dematom1/datadog-axi/commit/6c570cd418ec0da0c0d3945b741a5ff68694339c))
+
 ## [0.1.13](https://github.com/Dematom1/datadog-axi/compare/datadog-axi-v0.1.12...datadog-axi-v0.1.13) (2026-11-07)
 
 
